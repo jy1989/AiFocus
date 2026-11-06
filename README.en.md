@@ -55,16 +55,8 @@ AI Focus works without it, but then browsers are only recognised per window. Wit
 
 1. Start AI Focus.
 2. Open `chrome://extensions` (Edge: `edge://extensions`), turn on Developer mode, click "Load unpacked" and pick the repository's `extension` folder.
-3. Copy the 32-character extension ID from the details page and run in PowerShell:
 
-   ```powershell
-   .\scripts\register-native-host.ps1 -Browser Chrome -ExtensionId <extension ID>
-   # use -Browser Edge for Edge
-   ```
-
-4. Click "Reload" on the extension.
-
-The script only writes the current user's Native Messaging registration; no admin rights needed. After updating the extension, click "Reload" once on the extensions page.
+That's it. The extension has a fixed ID, so AI Focus registers the browser bridge for Chrome and Edge by itself every time it starts (current user's registry only, no admin rights). After updating the extension, click "Reload" on it once.
 
 ## Hotkeys and actions
 
@@ -96,7 +88,7 @@ The script only writes the current user's Native Messaging registration; no admi
 - No account, no external services; everything runs on your machine.
 - What is read: window titles, the local Claude Code / Codex transcripts (for directory, brief and conversation), and — through the extension — titles, URLs, generation state and conversations of AI sites.
 - The extension asks for `tabs`, `scripting`, `favicon` and access to all sites: its content script is injected into every page but only runs on the AI sites listed in `extension/sites.js`.
-- Data lives in `%LOCALAPPDATA%\AiFocus\`: `settings.json` (settings), `sessions.json` (stars, to-dos, renames) and the diagnostic `debug.log`.
+- Data lives in `%LOCALAPPDATA%\AiFocus\`: `settings.json` (settings), `sessions.json` (stars, to-dos, renames), the bridge registration `native-host.json` and the diagnostic `debug.log`.
 - Exiting AI Focus never closes any AI window or tab.
 
 ## Project layout
@@ -104,7 +96,7 @@ The script only writes the current user's Native Messaging registration; no admi
 - `src/AiFocus` — the WPF app: window discovery, state detection, panel, widget, console.
 - `src/AiFocus.Bridge` — Native Messaging bridge for the browser (stdio ↔ named pipe).
 - `extension` — Chrome / Edge extension (Manifest V3).
-- `scripts` — build, run, register the bridge.
+- `scripts` — build and run; `register-native-host.ps1` registers the bridge by hand (rarely needed: AI Focus does it at startup).
 - `tests/AiFocus.Probe` — command-line probe (lists detected windows, Claude Code sessions, conversations…).
 - `docs/images` — README screenshots, produced by demo mode: `AiFocus.exe --demo --view=list|widget --lang=zh|en`. Demo mode uses made-up sessions, reads no real windows or transcripts, registers no hotkeys, and can run next to a running AI Focus.
 

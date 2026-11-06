@@ -1,7 +1,8 @@
 {
   "manifest_version": 3,
   "name": "AI Focus Browser Bridge",
-  "version": "0.4.0",
+  "version": "0.5.0",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAmjU64SN7P5mfA/DOcBxOZhidJJlKZv/nb2SZ+U2Lsj6eg3++NKf4SsQsVPkMBkXvQR0+h3J34929FE/NXS1SktTxEnfMF+aPqYOxqDT/ZmQVUa2PYtGMLDxDYSX+P+ynTs2fDIlA4ak9GutCZfe3tdxwosx8j4rgqLaLDxLwuJqMDjy1Y7TVMgRz57h6DcwMwrBJa+r0gYyq6axAE9Id1HBlgFOHmu4LBZ60V2voXH3XCmpLPVpe40qKUI/QbedWRm3niZ2ImM7fXAoKXRYIx48lCAvYmSmAIx/AofAwzNMKWXgHsDJNSWA/UcqfitijW/FtEeOp4WJEsVKppE1LxQIDAQAB",
   "description": "Local AI tab index, generation status and one-click activation for AI Focus.",
   "permissions": [
     "tabs",

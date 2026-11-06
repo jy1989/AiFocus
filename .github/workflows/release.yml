@@ -1,0 +1,48 @@
+name: Windows Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  windows-release:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+      - name: Publish Windows app
+        shell: pwsh
+        run: |
+          dotnet publish src/AiFocus/AiFocus.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:PublishTrimmed=false -p:IncludeNativeLibrariesForSelfExtract=true -o dist/app --nologo
+          if ($LASTEXITCODE -ne 0) { throw 'App publish failed' }
+          dotnet publish src/AiFocus.Bridge/AiFocus.Bridge.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:PublishTrimmed=false -o dist/bridge --nologo
+          if ($LASTEXITCODE -ne 0) { throw 'Browser bridge publish failed' }
+      - name: Package app and browser extension
+        shell: pwsh
+        run: |
+          $folder = "AiFocus-${{ github.ref_name }}-win-x64"
+          $package = Join-Path 'dist/package' $folder
+          New-Item -ItemType Directory -Force -Path $package | Out-Null
+          Copy-Item dist/app/AiFocus.exe "$package/AiFocus.exe"
+          Copy-Item dist/bridge/AiFocus.Bridge.exe "$package/AiFocus.Bridge.exe"
+          Copy-Item -Recurse extension "$package/extension"
+          Copy-Item README.md,README.en.md -Destination $package
+          New-Item -ItemType Directory -Force -Path "$package/docs" | Out-Null
+          Copy-Item -Recurse docs/images "$package/docs/images"
+          if (-not (Test-Path "$package/AiFocus.Bridge.exe")) { throw 'Missing browser bridge' }
+          Compress-Archive -LiteralPath $package -DestinationPath "dist/$folder.zip" -CompressionLevel Optimal -Force
+      - name: Publish GitHub Release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $version = '${{ github.ref_name }}'
+          $zip = "dist/AiFocus-$version-win-x64.zip"
+          gh release create $version $zip --repo '${{ github.repository }}' --title "AI Focus $version (Windows Preview)" --notes-file docs/releases/v0.1.0.md --prerelease --verify-tag
+          if ($LASTEXITCODE -ne 0) { throw 'GitHub Release upload failed' }

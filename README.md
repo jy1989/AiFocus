@@ -55,16 +55,8 @@ dotnet build AiFocus.sln -c Debug
 
 1. 先启动 AI Focus。
 2. 打开 `chrome://extensions`（Edge 为 `edge://extensions`），开启"开发者模式"，点"加载已解压的扩展程序"，选择仓库里的 `extension` 目录。
-3. 复制扩展详情页里的 32 位扩展 ID，在 PowerShell 中执行：
 
-   ```powershell
-   .\scripts\register-native-host.ps1 -Browser Chrome -ExtensionId <扩展ID>
-   # Edge 用 -Browser Edge
-   ```
-
-4. 在扩展管理页对该扩展点"重新加载"。
-
-注册脚本只写入当前用户的 Native Messaging 注册项，不需要管理员权限。扩展更新后需要在扩展管理页点一次"重新加载"。
+就这两步。扩展带有固定 ID，AI Focus 每次启动时会自动为 Chrome 和 Edge 注册浏览器桥接（只写当前用户的注册表，不需要管理员权限）。扩展更新后，在扩展管理页对它点一次"重新加载"即可。
 
 ## 快捷键与操作
 
@@ -96,7 +88,7 @@ dotnet build AiFocus.sln -c Debug
 - 不需要账号，不连接任何外部服务，所有处理都在本机完成。
 - 读取的内容：窗口标题、Claude Code / Codex 的本地会话记录（用来显示目录、简报和对话），以及扩展从 AI 网站页面读到的标题、网址、生成状态和对话。
 - 浏览器扩展需要 `tabs`、`scripting`、`favicon` 和所有网站的访问权限：内容脚本会注入每个页面，但只在 AI 站点列表（`extension/sites.js`）中的网站上运行。
-- 数据保存在 `%LOCALAPPDATA%\AiFocus\`：`settings.json`（设置）、`sessions.json`（收藏、待处理、改名），以及诊断日志 `debug.log`。
+- 数据保存在 `%LOCALAPPDATA%\AiFocus\`：`settings.json`（设置）、`sessions.json`（收藏、待处理、改名）、浏览器桥接注册文件 `native-host.json`，以及诊断日志 `debug.log`。
 - 退出 AI Focus 不会关闭任何 AI 窗口或网页。
 
 ## 项目结构
@@ -104,7 +96,7 @@ dotnet build AiFocus.sln -c Debug
 - `src/AiFocus`：WPF 主程序：窗口发现、状态判断、面板、悬浮窗、控制台。
 - `src/AiFocus.Bridge`：浏览器 Native Messaging 桥接（stdio ↔ 命名管道）。
 - `extension`：Chrome / Edge 扩展（Manifest V3）。
-- `scripts`：构建、运行、注册桥接。
+- `scripts`：构建、运行；`register-native-host.ps1` 可手动注册桥接（一般不需要，AI Focus 启动时会自动注册）。
 - `tests/AiFocus.Probe`：命令行探测工具（列出识别到的窗口、Claude Code 会话、对话等）。
 - `docs/images`：README 截图，由演示模式生成：`AiFocus.exe --demo --view=list|widget --lang=zh|en`。演示模式使用虚构的会话，不读取真实窗口和会话记录，不注册快捷键，可以和正在运行的 AI Focus 同时打开。
 

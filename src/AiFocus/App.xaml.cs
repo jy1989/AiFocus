@@ -34,6 +34,8 @@ public partial class App : System.Windows.Application
         AppPaths.MigrateFromAiCockpit();
         Loc.Init(AppSettings.Load().Language);
         try { AutoStart.RefreshPath(); } catch (UnauthorizedAccessException) { }
+        // The extension has a fixed ID, so the bridge can be registered without asking the user.
+        Task.Run(NativeHost.EnsureRegistered);
         _singleInstance = new Mutex(initiallyOwned: true, name: @"Local\AiFocus.SingleInstance", createdNew: out bool first);
         if (!first)
         {

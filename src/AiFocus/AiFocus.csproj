@@ -15,4 +15,9 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.Toolkit.Uwp.Notifications" Version="7.1.3" />
   </ItemGroup>
+  <ItemGroup>
+    <!-- Builds the browser bridge with the app and puts it next to AiFocus.exe (dll + apphost + runtimeconfig),
+         where NativeHost registers it at startup. -->
+    <ProjectReference Include="..\AiFocus.Bridge\AiFocus.Bridge.csproj" />
+  </ItemGroup>
 </Project>

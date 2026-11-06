@@ -1,7 +1,8 @@
+# Optional: AI Focus registers the bridge by itself at startup (the extension has a fixed ID).
+# Use this only to register by hand, e.g. for an extension built with a different key.
 param(
-    [Parameter(Mandatory = $true)]
     [ValidatePattern('^[a-p]{32}$')]
-    [string]$ExtensionId,
+    [string]$ExtensionId = 'gocjfjagegiifclaphpmcfamjlbjdgjj',
     [ValidateSet('Chrome', 'Edge')]
     [string]$Browser = 'Chrome'
 )
