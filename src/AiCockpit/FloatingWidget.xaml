@@ -1,0 +1,69 @@
+<Window x:Class="AiCockpit.FloatingWidget"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="AI Cockpit 悬浮窗" Width="360" SizeToContent="Height"
+        WindowStyle="None" ResizeMode="NoResize" Topmost="True" ShowInTaskbar="False" ShowActivated="False"
+        Background="{StaticResource Paper}" Foreground="{StaticResource Ink}"
+        FontFamily="Microsoft YaHei UI, Segoe UI" FontSize="14"
+        UseLayoutRounding="True" SnapsToDevicePixels="True"
+        TextOptions.TextFormattingMode="Display" TextOptions.TextRenderingMode="ClearType"
+        MouseEnter="Window_MouseEnter" MouseLeave="Window_MouseLeave">
+    <!-- Glanceable status capsule: one dot + one line; hover lists only what needs the user. -->
+    <WindowChrome.WindowChrome>
+        <WindowChrome CaptionHeight="0" GlassFrameThickness="0" ResizeBorderThickness="0"
+                      CornerRadius="0" UseAeroCaptionButtons="False"/>
+    </WindowChrome.WindowChrome>
+    <Border BorderBrush="#DEDBD3" BorderThickness="1">
+        <StackPanel>
+            <Grid x:Name="Capsule" Height="40" Background="Transparent" Cursor="Hand"
+                  MouseLeftButtonDown="Capsule_MouseLeftButtonDown" ToolTip="单击打开面板 · 拖动移动 · 右键更多">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="30"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <Ellipse x:Name="StatusDot" Width="9" Height="9" Fill="#C2BEB5" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="6,0,0,0"/>
+                <!-- Filled in code: "N 个待回复 [icons]  ·  N 个运行中 [icons]". -->
+                <StackPanel Grid.Column="1" x:Name="Summary" Orientation="Horizontal" VerticalAlignment="Center" ClipToBounds="True"/>
+                <TextBlock Grid.Column="2" x:Name="ExpandHint" Text="⌄" Foreground="{StaticResource InkMuted}" FontSize="14"
+                           VerticalAlignment="Center" Margin="0,0,12,2" Visibility="Collapsed"/>
+                <Grid.ContextMenu>
+                    <ContextMenu FontSize="14">
+                        <MenuItem Header="打开面板" Click="OpenPanel_Click"/>
+                        <MenuItem Header="送过去（下一个等你的会话）" Click="Next_Click"/>
+                        <Separator/>
+                        <MenuItem Header="隐藏悬浮窗" Click="Hide_Click"/>
+                    </ContextMenu>
+                </Grid.ContextMenu>
+            </Grid>
+            <ItemsControl x:Name="ActiveList" Visibility="Collapsed" Margin="6,0,6,6">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Border x:Name="Row" Background="Transparent" CornerRadius="7" Cursor="Hand" Padding="0,6"
+                                MouseLeftButtonUp="Row_MouseLeftButtonUp" ToolTip="{Binding ToolTipText}">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="3"/><ColumnDefinition Width="34"/><ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Border Background="{Binding AccentBrush}" CornerRadius="2" Margin="0,2"/>
+                                <ContentControl Grid.Column="1" Content="{Binding}" ContentTemplate="{StaticResource SessionIcon}"
+                                                HorizontalAlignment="Center" VerticalAlignment="Center" Focusable="False"/>
+                                <StackPanel Grid.Column="2" Margin="0,0,8,0">
+                                    <TextBlock Text="{Binding DisplayTitle}" FontSize="14" TextTrimming="CharacterEllipsis"/>
+                                    <TextBlock Text="{Binding WidgetMeta}" FontSize="12" Foreground="{StaticResource InkMuted}"
+                                               TextTrimming="CharacterEllipsis" Margin="0,1,0,0"/>
+                                    <!-- One-line brief of the AI's last reply: decide without switching windows. -->
+                                    <TextBlock Text="{Binding Brief}" Visibility="{Binding BriefVisibility}" FontSize="12.5"
+                                               Foreground="{StaticResource InkSoft}" TextTrimming="CharacterEllipsis" Margin="0,3,0,0"/>
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+                        <DataTemplate.Triggers>
+                            <Trigger SourceName="Row" Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Row" Property="Background" Value="#EDEBE5"/>
+                            </Trigger>
+                        </DataTemplate.Triggers>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </StackPanel>
+    </Border>
+</Window>

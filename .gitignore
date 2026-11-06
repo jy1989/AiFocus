@@ -1,0 +1,11 @@
+bin/
+obj/
+.vs/
+.idea/
+*.user
+*.suo
+.vscode/
+scripts/native-host-*.json
+dist/
+TestResults/
+*.log
