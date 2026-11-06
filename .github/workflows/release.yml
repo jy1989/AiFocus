@@ -19,9 +19,9 @@ jobs:
       - name: Publish Windows app
         shell: pwsh
         run: |
-          dotnet publish src/AiFocus/AiFocus.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:PublishTrimmed=false -p:IncludeNativeLibrariesForSelfExtract=true -o dist/app --nologo
+          dotnet publish src/AiFocus/AiFocus.csproj -c Release -r win-x64 --self-contained false -p:PublishSingleFile=true -o dist/app --nologo
           if ($LASTEXITCODE -ne 0) { throw 'App publish failed' }
-          dotnet publish src/AiFocus.Bridge/AiFocus.Bridge.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:PublishTrimmed=false -o dist/bridge --nologo
+          dotnet publish src/AiFocus.Bridge/AiFocus.Bridge.csproj -c Release -r win-x64 --self-contained false -p:PublishSingleFile=true -o dist/bridge --nologo
           if ($LASTEXITCODE -ne 0) { throw 'Browser bridge publish failed' }
       - name: Package app and browser extension
         shell: pwsh
@@ -44,5 +44,5 @@ jobs:
         run: |
           $version = '${{ github.ref_name }}'
           $zip = "dist/AiFocus-$version-win-x64.zip"
-          gh release create $version $zip --repo '${{ github.repository }}' --title "AI Focus $version (Windows Preview)" --notes-file docs/releases/v0.1.0.md --prerelease --verify-tag
+          gh release create $version $zip --repo '${{ github.repository }}' --title "AI Focus $version (Windows Preview)" --notes-file "docs/releases/$version.md" --prerelease --verify-tag
           if ($LASTEXITCODE -ne 0) { throw 'GitHub Release upload failed' }

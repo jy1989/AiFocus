@@ -8,6 +8,9 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>AiFocus</AssemblyName>
+    <!-- Published without the runtime; roll forward so a newer installed .NET also runs it. -->
+    <RollForward>Major</RollForward>
+    <SelfContained>false</SelfContained>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <!-- DPI is declared in app.manifest for WPF; the WinForms-only suggestion does not apply. -->
     <NoWarn>$(NoWarn);WFO0003</NoWarn>
