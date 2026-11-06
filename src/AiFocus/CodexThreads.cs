@@ -13,7 +13,7 @@ namespace AiFocus;
 public sealed class CodexThreads
 {
     /// <param name="RepliedUtc">When the AI finished its last turn; null while running or after the user interrupted it.</param>
-    public sealed record Thread(string Id, string Title, string Directory, DateTime UpdatedUtc, string Activity, string LastMessage, DateTime? RepliedUtc, string Path);
+    public sealed record Thread(string Id, string Title, string Directory, DateTime UpdatedUtc, string Activity, string LastMessage, DateTime? RepliedUtc);
 
     private sealed class Rollout
     {
@@ -67,7 +67,7 @@ public sealed class CodexThreads
             if (info.LastWriteTimeUtc != r.WriteUtc || info.Length != r.Length) Parse(info, r);
             var activity = r.Activity == "running" && now - r.WriteUtc > StaleRunning ? "idle" : r.Activity;
             var title = _names.TryGetValue(r.Id, out var n) && n.Length > 0 ? n : Loc.T("未命名会话", "Untitled thread");
-            result.Add(new Thread(r.Id, title, r.Directory, r.WriteUtc, activity, r.LastMessage, activity == "running" ? null : r.RepliedUtc, path));
+            result.Add(new Thread(r.Id, title, r.Directory, r.WriteUtc, activity, r.LastMessage, activity == "running" ? null : r.RepliedUtc));
         }
         return result;
     }

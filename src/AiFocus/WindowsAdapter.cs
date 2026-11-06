@@ -195,7 +195,6 @@ public static class WindowsAdapter
         return buffer.ToString();
     }
 
-    public static bool IsMinimized(IntPtr hwnd) => IsIconic(hwnd);
 
     public static bool IsOwnWindow(IntPtr hwnd)
     {

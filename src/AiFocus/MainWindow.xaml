@@ -18,7 +18,6 @@
                       CornerRadius="0" UseAeroCaptionButtons="False"/>
     </WindowChrome.WindowChrome>
     <Window.Resources>
-        <local:MarkdownConverter x:Key="Markdown"/>
         <Style x:Key="FlatButton" TargetType="Button">
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="Foreground" Value="{StaticResource InkSoft}"/>
@@ -98,23 +97,12 @@
                 <Button x:Name="AllButton" Content="{x:Static local:Loc.FilterAll}" Tag="all" Click="Filter_Click" Style="{StaticResource FlatButton}" Margin="0,0,4,0"/>
                 <Button x:Name="AttentionButton" Content="{x:Static local:Loc.FilterAttention}" Tag="attention" Click="Filter_Click" Style="{StaticResource FlatButton}" Margin="0,0,4,0"/>
                 <Button x:Name="FavoriteButton" Content="{x:Static local:Loc.FilterFavorite}" Tag="favorite" Click="Filter_Click" Style="{StaticResource FlatButton}"/>
-                <Button x:Name="ConversationButton" DockPanel.Dock="Right" Content="{x:Static local:Loc.Conversation}" Click="ConversationMode_Click"
-                        Style="{StaticResource FlatButton}" ToolTip="{x:Static local:Loc.ConversationTip}"/>
-                <Button x:Name="ConsoleButton" DockPanel.Dock="Right" Content="{x:Static local:Loc.ConsoleMode}" Click="ConsoleMode_Click" Style="{StaticResource FlatButton}" Margin="0,0,4,0"
-                        ToolTip="{x:Static local:Loc.ConsoleTip}"/>
-                <Button x:Name="LayoutButton" DockPanel.Dock="Right" Content="分组" Click="Layout_Click" Style="{StaticResource FlatButton}" Margin="0,0,4,0"/>
+                <Button x:Name="LayoutButton" DockPanel.Dock="Right" Content="分组" Click="Layout_Click" Style="{StaticResource FlatButton}"/>
             </DockPanel>
-            <Grid Grid.Row="6">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition x:Name="ListColumn" Width="*"/>
-                    <ColumnDefinition x:Name="ConversationColumn" Width="0"/>
-                </Grid.ColumnDefinitions>
-            <ListBox x:Name="SessionList" BorderThickness="0" Background="Transparent" FocusVisualStyle="{x:Null}"
+            <ListBox x:Name="SessionList" Grid.Row="6" BorderThickness="0" Background="Transparent" FocusVisualStyle="{x:Null}"
                      ScrollViewer.VerticalScrollBarVisibility="Auto"
                      ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                     MouseDoubleClick="SessionList_MouseDoubleClick"
                      PreviewMouseLeftButtonUp="SessionList_PreviewMouseLeftButtonUp"
-                     SelectionChanged="SessionList_SelectionChanged"
                      KeyDown="SessionList_KeyDown">
                 <ListBox.GroupStyle>
                     <GroupStyle>
@@ -177,7 +165,7 @@
                                            TextTrimming="CharacterEllipsis" Margin="0,0,6,2"/>
                                 <TextBlock Text="{Binding TileMeta}" FontSize="12.5" Foreground="{StaticResource InkMuted}"
                                            TextTrimming="CharacterEllipsis" Margin="0,0,6,0"/>
-                                <!-- Latest AI reply in one line; the full turns live in the Tab conversation view. -->
+                                <!-- Latest AI reply in one line. -->
                                 <TextBlock Text="{Binding Brief}" FontSize="12.5" Foreground="{StaticResource InkSoft}"
                                            TextTrimming="CharacterEllipsis" Margin="0,3,6,0"/>
                             </StackPanel>
@@ -219,49 +207,6 @@
                     </DataTemplate>
                 </ListBox.ItemTemplate>
             </ListBox>
-                <!-- Conversation view: the selected session's latest turns, to judge whether to switch over. -->
-                <!-- 控制台: every session as a big card, live window thumbnails where possible (ConsoleView). -->
-                <Grid x:Name="ConsolePane" Grid.ColumnSpan="2" Visibility="Collapsed" Margin="0,4,0,18"/>
-                <Border x:Name="ConversationPane" Grid.Column="1" Visibility="Collapsed" Margin="10,4,0,0"
-                        Background="#FBFAF7" BorderBrush="#E6E3DC" BorderThickness="1" CornerRadius="10">
-                    <DockPanel>
-                        <StackPanel DockPanel.Dock="Top" Margin="18,14,18,8">
-                            <TextBlock x:Name="ConversationTitle" FontSize="15.5" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
-                            <TextBlock x:Name="ConversationMeta" FontSize="12.5" Foreground="{StaticResource InkMuted}" Margin="0,3,0,0"
-                                       TextTrimming="CharacterEllipsis"/>
-                        </StackPanel>
-                        <TextBlock DockPanel.Dock="Bottom" Text="{x:Static local:Loc.ConversationFooter}" FontSize="12" Foreground="#A29E95"
-                                   Margin="18,6,18,10"/>
-                        <Grid>
-                            <ScrollViewer x:Name="ConversationScroll" VerticalScrollBarVisibility="Auto" Padding="14,0,14,0">
-                                <ItemsControl x:Name="ConversationList">
-                                    <ItemsControl.ItemTemplate>
-                                        <DataTemplate>
-                                            <Border x:Name="Bubble" Background="White" BorderBrush="#ECE9E2" BorderThickness="1"
-                                                    CornerRadius="10" Padding="12,8" Margin="0,4,48,4" HorizontalAlignment="Left">
-                                                <StackPanel>
-                                                    <TextBlock Text="{Binding RoleLabel}" FontSize="11.5" Foreground="{StaticResource InkMuted}" Margin="0,0,0,3"/>
-                                                    <ContentControl Content="{Binding Text, Converter={StaticResource Markdown}}" Focusable="False"/>
-                                                </StackPanel>
-                                            </Border>
-                                            <DataTemplate.Triggers>
-                                                <DataTrigger Binding="{Binding FromUser}" Value="True">
-                                                    <Setter TargetName="Bubble" Property="Background" Value="#ECEAE4"/>
-                                                    <Setter TargetName="Bubble" Property="BorderThickness" Value="0"/>
-                                                    <Setter TargetName="Bubble" Property="Margin" Value="48,4,0,4"/>
-                                                    <Setter TargetName="Bubble" Property="HorizontalAlignment" Value="Right"/>
-                                                </DataTrigger>
-                                            </DataTemplate.Triggers>
-                                        </DataTemplate>
-                                    </ItemsControl.ItemTemplate>
-                                </ItemsControl>
-                            </ScrollViewer>
-                            <TextBlock x:Name="ConversationEmpty" FontSize="14" Foreground="{StaticResource InkMuted}" TextWrapping="Wrap"
-                                       HorizontalAlignment="Center" VerticalAlignment="Center" Margin="24" TextAlignment="Center" Visibility="Collapsed"/>
-                        </Grid>
-                    </DockPanel>
-                </Border>
-            </Grid>
             <Grid Grid.Row="7" Margin="14,10,0,0">
                 <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                 <TextBlock x:Name="FeedbackText" Text="{x:Static local:Loc.KeyHints}"

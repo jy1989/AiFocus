@@ -33,17 +33,6 @@ function connect() {
     port = p;
     p.onMessage.addListener(async (msg) => {
       if (!Number.isInteger(msg?.tabId)) return;
-      if (msg.type === "conversation") {
-        // Relay to the tab's content script, which reads the latest turns from the page.
-        let reply = { supported: false, messages: [] };
-        try {
-          reply = await chrome.tabs.sendMessage(msg.tabId, { type: "read-conversation" }) || reply;
-        } catch (error) {
-          console.info("AI Focus: no conversation reader in tab", msg.tabId, error?.message);
-        }
-        if (port === p) p.postMessage({ type: "conversation", requestId: msg.requestId, ...reply });
-        return;
-      }
       if (msg.type !== "activate") return;
       try {
         const tab = await chrome.tabs.get(msg.tabId);
@@ -108,7 +97,6 @@ async function sendSnapshot() {
       windowId: tab.windowId,
       title: (tab.title || "").slice(0, 240),
       url: (tab.url || "").slice(0, 4096),
-      active: !!tab.active,
       focused: !!tab.active && tab.windowId === focusedWindowId,
       generating: generating.has(tab.id) ? generating.get(tab.id) : null,
       icon: await faviconOf(tab)

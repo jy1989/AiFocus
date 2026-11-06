@@ -72,43 +72,4 @@
   check();
   // Heartbeat: the background service worker may have restarted and lost its state.
   setInterval(() => { if (alive && reported !== null) send(reported); }, 20000);
-
-  // --- Latest turns, read on demand for AI Focus's conversation view. ---
-  const MAX_MESSAGES = 8, MAX_CHARS = 2500;
-
-  // Each reader returns [{ el, user }] in page order, or null if the page is not that site's chat UI.
-  const READERS = [
-    () => { // ChatGPT: every turn carries its author role.
-      const nodes = document.querySelectorAll("[data-message-author-role]");
-      return nodes.length ? [...nodes].map((el) => ({ el, user: el.getAttribute("data-message-author-role") === "user" })) : null;
-    },
-    () => { // Claude: user turns are marked; every reply sits in a [data-is-streaming] container.
-      if (!location.hostname.endsWith("claude.ai")) return null;
-      const nodes = document.querySelectorAll('[data-testid="user-message"], [data-is-streaming]');
-      return [...nodes].map((el) => ({ el, user: el.matches('[data-testid="user-message"]') }));
-    },
-    () => { // Gemini: custom elements per turn.
-      const nodes = document.querySelectorAll("user-query, model-response");
-      return nodes.length ? [...nodes].map((el) => ({ el, user: el.tagName.toLowerCase() === "user-query" })) : null;
-    }
-  ];
-
-  function readConversation() {
-    for (const reader of READERS) {
-      const turns = reader();
-      if (!turns) continue;
-      const messages = turns
-        .map(({ el, user }) => ({ role: user ? "user" : "assistant", text: (el.innerText || "").trim() }))
-        .filter((m) => m.text)
-        .slice(-MAX_MESSAGES)
-        .map((m) => (m.text.length > MAX_CHARS ? { ...m, text: m.text.slice(0, MAX_CHARS) + "\n…" } : m));
-      return { supported: true, messages };
-    }
-    return { supported: false, messages: [] };
-  }
-
-  chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
-    if (msg?.type !== "read-conversation") return;
-    sendResponse(readConversation());
-  });
 })();

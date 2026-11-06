@@ -13,7 +13,7 @@ namespace AiFocus;
 public sealed class ClaudeSessions
 {
     /// <param name="PendingTool">The last transcript entry is a tool call without a result.</param>
-    public sealed record Session(string Title, string Directory, string LastMessage, DateTime UpdatedUtc, bool PendingTool, string Path);
+    public sealed record Session(string Title, string Directory, string LastMessage, DateTime UpdatedUtc, bool PendingTool);
 
     private sealed class Transcript
     {
@@ -64,7 +64,7 @@ public sealed class ClaudeSessions
             if (info.LastWriteTimeUtc != t.WriteUtc || info.Length != t.Length) Parse(info, t);
             if (t.Title.Length == 0) continue;
             if (!result.TryGetValue(t.Title, out var existing) || existing.UpdatedUtc < t.WriteUtc)
-                result[t.Title] = new Session(t.Title, t.Directory, t.LastMessage, t.WriteUtc, t.PendingTool, path);
+                result[t.Title] = new Session(t.Title, t.Directory, t.LastMessage, t.WriteUtc, t.PendingTool);
         }
         return result;
     }

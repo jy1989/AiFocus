@@ -226,7 +226,7 @@ public partial class MainWindow : Window
         _beforeOpen = WindowsAdapter.GetForegroundWindow();
         var screen = WinForms.Screen.FromPoint(WinForms.Cursor.Position).WorkingArea;
         // Re-placing means resizing, which costs a re-layout; skip it when nothing changed.
-        if (screen != _placedOn || !IsVisible || _placedForConsole != _consoleMode) { PlaceOnScreen(screen); _placedOn = screen; _placedForConsole = _consoleMode; }
+        if (screen != _placedOn || !IsVisible) { PlaceOnScreen(screen); _placedOn = screen; }
         bool firstShow = !IsVisible;
         if (firstShow)
         {
@@ -243,7 +243,6 @@ public partial class MainWindow : Window
         else SetCloaked(false);
         // Shown with data from the last background refresh (≤ 3 s old); fresh data follows.
         RefreshSessionsInBackground();
-        UpdateConsole();
     }
 
     private void SetCloaked(bool cloaked)
@@ -276,12 +275,6 @@ public partial class MainWindow : Window
         var monitor = MonitorFromPoint(new NativePoint { X = screen.Left + screen.Width / 2, Y = screen.Top + screen.Height / 2 }, MonitorDefaultToNearest);
         double scale = GetDpiForMonitor(monitor, 0, out uint dpiX, out _) == 0 ? dpiX / 96.0 : VisualTreeHelper.GetDpi(this).DpiScaleX;
         // Recomputed on every show (never shrink-only), so moving between screens cannot leave it narrow.
-        if (_consoleMode)
-        {
-            // Console: fill the work area (taskbar stays visible).
-            SetWindowPos(handle, IntPtr.Zero, screen.Left, screen.Top, screen.Width, screen.Height, SwpNoZOrder | SwpNoActivate);
-            return;
-        }
         int width = (int)Math.Min(PanelWidth * scale, screen.Width * 0.94);
         int height = (int)Math.Min(PanelHeight * scale, screen.Height * 0.9);
         int x = screen.Left + (screen.Width - width) / 2;
@@ -293,7 +286,6 @@ public partial class MainWindow : Window
         if (!PanelShown) return;
         PanelShown = false;
         SetCloaked(true);
-        _console?.Clear(); // No live thumbnails while hidden.
         if (restorePrevious && _beforeOpen != IntPtr.Zero) WindowsAdapter.Activate(_beforeOpen);
         // A cloaked window that still holds the foreground would swallow keystrokes invisibly
         // (e.g. a jump Windows refused). In that case really hide it to release focus.
@@ -302,71 +294,9 @@ public partial class MainWindow : Window
             if (!PanelShown && IsVisible && WindowsAdapter.GetForegroundWindow() == new WindowInteropHelper(this).Handle) Hide();
         }, DispatcherPriority.Background);
     }
-    // ---- 控制台: maximised, every session as a big card with a live window preview or its latest turns. ----
-    private bool _consoleMode;
-    private bool _placedForConsole;
-    private ConsoleView? _console;
-    private readonly Dictionary<string, (DateTime Stamp, IReadOnlyList<ChatMessage> Messages)> _transcriptCache = new();
-
-    private void ConsoleMode_Click(object sender, RoutedEventArgs e) => ToggleConsoleMode();
-
-    private void ToggleConsoleMode()
-    {
-        if (!_consoleMode && _conversationMode) ToggleConversationMode();
-        _consoleMode = !_consoleMode;
-        SessionList.Visibility = _consoleMode ? Visibility.Collapsed : Visibility.Visible;
-        ConsolePane.Visibility = _consoleMode ? Visibility.Visible : Visibility.Collapsed;
-        ConsoleButton.Background = _consoleMode ? new SolidColorBrush(Color.FromRgb(0x3A, 0x40, 0x48)) : Brushes.Transparent;
-        ConsoleButton.Foreground = _consoleMode ? new SolidColorBrush(Color.FromRgb(0xF4, 0xF3, 0xEF)) : new SolidColorBrush(Color.FromRgb(0x6B, 0x70, 0x78));
-        PlaceOnScreen(_placedOn.IsEmpty ? WinForms.Screen.FromPoint(WinForms.Cursor.Position).WorkingArea : _placedOn);
-        _placedForConsole = _consoleMode;
-        if (_consoleMode) UpdateConsole();
-        else _console?.Clear();
-    }
-
-    private void UpdateConsole()
-    {
-        if (!_consoleMode || !PanelShown) return;
-        _console ??= new ConsoleView(this, ConsolePane, ActivateSessionAsync, LiveWindowOf, ReadConversationAsync);
-        _console.Update(_view.Cast<SessionEntry>().ToList());
-    }
-
-    /// <summary>The window to preview live for a session, or zero when its window is not showing it
-    /// (background tab, minimised, Codex thread that may not be the open one).</summary>
-    private IntPtr LiveWindowOf(SessionEntry s)
-    {
-        var hwnd = s.Kind switch
-        {
-            "terminal-tab" => _terminalTabs.Get(s.WindowHandle)?.FirstOrDefault(t => WindowsAdapter.ParseClaudeCodeTitle(t.Title).title == s.OriginalTitle)?.Selected == true
-                ? s.WindowHandle : IntPtr.Zero,
-            "web" => s.TabActive ? WindowsAdapter.FindBrowserWindow(s.OriginalTitle) : IntPtr.Zero,
-            "codex-thread" => IntPtr.Zero,
-            _ => s.WindowHandle
-        };
-        return WindowsAdapter.Exists(hwnd) && !WindowsAdapter.IsMinimized(hwnd) ? hwnd : IntPtr.Zero;
-    }
-
-    /// <summary>Latest turns for a card; transcripts are re-read only when they changed on disk.</summary>
-    private async Task<IReadOnlyList<ChatMessage>?> ReadConversationAsync(SessionEntry s)
-    {
-        if (s.TranscriptPath.Length > 0)
-        {
-            var stamp = System.IO.File.GetLastWriteTimeUtc(s.TranscriptPath);
-            if (_transcriptCache.TryGetValue(s.TranscriptPath, out var cached) && cached.Stamp == stamp) return cached.Messages;
-            var path = s.TranscriptPath;
-            bool codex = s.Kind == "codex-thread";
-            var messages = await Task.Run(() => codex ? Conversation.ReadCodex(path) : Conversation.ReadClaude(path));
-            _transcriptCache[path] = (stamp, messages);
-            return messages;
-        }
-        if (s.Kind != "web") return null;
-        var reply = await _browser.RequestConversationAsync(s);
-        return reply is { Supported: true } ? reply.Messages.Select(m => new ChatMessage(m.Role == "user", m.Text)).ToList() : null;
-    }
     private void Window_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
     {
         if (e.Key == Key.Escape) { HidePanel(restorePrevious: true); e.Handled = true; }
-        if (e.Key == Key.Tab) { ToggleConversationMode(); e.Handled = true; return; }
         if (e.Key == Key.Down && SearchBox.IsKeyboardFocused)
         {
             SessionList.SelectedIndex = Math.Max(0, SessionList.SelectedIndex);
@@ -416,99 +346,11 @@ public partial class MainWindow : Window
         LayoutButton.ToolTip = _settings.GroupByTool
             ? Loc.T("当前按工具分组，点击切换为混合排列", "Grouped by tool; click for one mixed list")
             : Loc.T("当前混合排列，点击切换为按工具分组", "One mixed list; click to group by tool");
-        if (_console != null) UpdateConsole();
     }
 
-    // ---- Conversation view: the selected session's latest turns, to decide whether to switch over. ----
-    private bool _conversationMode;
-    private int _conversationRequest;
-    private string _shownConversation = "";
-
-    private void ConversationMode_Click(object sender, RoutedEventArgs e) => ToggleConversationMode();
-    private void SessionList_SelectionChanged(object sender, SelectionChangedEventArgs e)
-    {
-        if (_conversationMode) _ = LoadConversationAsync(force: true);
-    }
-
-    private void ToggleConversationMode()
-    {
-        if (!_conversationMode && _consoleMode) ToggleConsoleMode();
-        _conversationMode = !_conversationMode;
-        // A narrow list column turns the tile grid into a single column automatically.
-        ListColumn.Width = _conversationMode ? new GridLength(380) : new GridLength(1, GridUnitType.Star);
-        ConversationColumn.Width = _conversationMode ? new GridLength(1, GridUnitType.Star) : new GridLength(0);
-        ConversationPane.Visibility = _conversationMode ? Visibility.Visible : Visibility.Collapsed;
-        ConversationButton.Background = _conversationMode ? new SolidColorBrush(Color.FromRgb(0x3A, 0x40, 0x48)) : Brushes.Transparent;
-        ConversationButton.Foreground = _conversationMode ? new SolidColorBrush(Color.FromRgb(0xF4, 0xF3, 0xEF)) : new SolidColorBrush(Color.FromRgb(0x6B, 0x70, 0x78));
-        if (_conversationMode && SessionList.SelectedItem == null && SessionList.Items.Count > 0) SessionList.SelectedIndex = 0;
-        _ = LoadConversationAsync(force: true);
-    }
-
-    private async Task LoadConversationAsync(bool force)
-    {
-        if (!_conversationMode) return;
-        if (SessionList.SelectedItem is not SessionEntry s)
-        {
-            ConversationTitle.Text = ConversationMeta.Text = "";
-            ShowConversation(null, Loc.T("选择一个会话，这里会显示最近几轮对话", "Pick a session to see its latest turns here"));
-            return;
-        }
-        int request = ++_conversationRequest;
-        ConversationTitle.Text = s.DisplayTitle;
-        ConversationMeta.Text = string.Join("  ·  ", new[] { s.Provider, s.ProjectPath.Length > 0 ? s.ProjectPath : s.SourceName }.Where(x => x.Length > 0));
-
-        IReadOnlyList<ChatMessage>? messages = null;
-        string empty;
-        if (s.TranscriptPath.Length > 0)
-        {
-            messages = s.Kind == "codex-thread" ? Conversation.ReadCodex(s.TranscriptPath) : Conversation.ReadClaude(s.TranscriptPath);
-            empty = Loc.T("还没有对话内容", "No conversation yet");
-        }
-        else if (s.Kind == "web")
-        {
-            var reply = await _browser.RequestConversationAsync(s);
-            if (request != _conversationRequest) return; // Selection moved on while we waited.
-            if (reply == null) empty = Loc.T("读取不到这个标签页的对话。\n请在 chrome://extensions 里把 AI Focus 扩展重新加载到最新版本，并刷新一下该页面。",
-                "Couldn't read this tab's conversation.\nReload the AI Focus extension in chrome://extensions and refresh the page.");
-            else if (!reply.Supported) empty = Loc.T("这个网站暂不支持读取对话\n（目前支持 ChatGPT、Claude、Gemini）", "Reading conversations isn't supported on this site yet\n(supported: ChatGPT, Claude, Gemini)");
-            else
-            {
-                messages = reply.Messages.Select(m => new ChatMessage(m.Role == "user", m.Text)).ToList();
-                empty = Loc.T("页面上还没有对话", "No conversation on the page yet");
-            }
-        }
-        else empty = s.Provider == "Claude Code"
-            ? Loc.T("没有找到这个会话的记录\n（终端标题和 Claude Code 会话记录没对上）", "No transcript found for this session\n(the terminal title didn't match a Claude Code session)")
-            : Loc.T("这个会话没有可读取的对话记录", "This session has no readable conversation");
-
-        // Refreshes run every few seconds: only re-render (and reset the scroll) when something changed.
-        var signature = s.RuntimeKey + "|" + empty + "|" + string.Join("\u0001", messages?.Select(m => m.Text.Length + ":" + m.Text[..Math.Min(40, m.Text.Length)]) ?? Array.Empty<string>());
-        if (!force && signature == _shownConversation) return;
-        _shownConversation = signature;
-        ShowConversation(messages, empty);
-    }
-
-    private void ShowConversation(IReadOnlyList<ChatMessage>? messages, string empty)
-    {
-        bool has = messages is { Count: > 0 };
-        ConversationList.ItemsSource = has ? messages : null;
-        ConversationEmpty.Text = empty;
-        ConversationEmpty.Visibility = has ? Visibility.Collapsed : Visibility.Visible;
-        // Newest turn at the bottom, like the chat itself.
-        if (has) Dispatcher.BeginInvoke(ConversationScroll.ScrollToEnd, DispatcherPriority.Loaded);
-    }
-
-    private void SessionList_MouseDoubleClick(object sender, MouseButtonEventArgs e)
-    {
-        // Single click already jumps outside the conversation view; double click is for that view.
-        if (_conversationMode && SessionList.SelectedItem is SessionEntry s) _ = ActivateSessionAsync(s);
-    }
-
-    /// <summary>One click on a tile jumps (a second click was pure delay). In the conversation view a
-    /// click only selects, to preview; double click or Enter jumps there.</summary>
+    /// <summary>One click on a tile jumps (a second click was pure delay).</summary>
     private void SessionList_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
     {
-        if (_conversationMode) return;
         // Clicks on the star / to-do buttons inside a tile are theirs, not a jump.
         for (var node = e.OriginalSource as DependencyObject; node != null && node != SessionList; node = VisualTreeHelper.GetParent(node))
         {
@@ -737,7 +579,6 @@ public partial class MainWindow : Window
                 s.BrowserWindowId = tab.WindowId;
                 s.BrowserTabId = tab.Id;
                 s.Url = tab.Url;
-                s.TabActive = tab.Active;
                 s.IconImage = IconCache.FromDataUrl(tab.Icon);
                 SetFocus(s, tab.Focused);
                 // Generation state comes from the extension's content script (v0.3+).
@@ -768,7 +609,6 @@ public partial class MainWindow : Window
                 s.IconImage ??= IconCache.ForWindow(_codexWindow, "Codex", _codexExe ?? CodexThreads.DefaultExecutable);
                 s.ProjectPath = t.Directory;
                 s.Preview = t.LastMessage;
-                s.TranscriptPath = t.Path;
                 if (t.UpdatedUtc > s.LastFocusedUtc) s.LastFocusedUtc = t.UpdatedUtc;
                 s.LastSeenUtc = DateTime.UtcNow;
                 UpdateActivity(s, t.Activity, isNew);
@@ -785,8 +625,6 @@ public partial class MainWindow : Window
             if (old != null && _sessions.Contains(old)) SessionList.SelectedItem = old;
             UpdateCounts();
             SessionsRefreshed?.Invoke();
-            if (_conversationMode && PanelShown) _ = LoadConversationAsync(force: false);
-            UpdateConsole();
             // Remember the last outside window in front, so jumps made while the panel stays open
             // can still "送回来" to the user's own work.
             if (WindowsAdapter.Exists(focused) && !WindowsAdapter.IsOwnWindow(focused)) _beforeOpen = focused;
@@ -817,7 +655,6 @@ public partial class MainWindow : Window
         if (!sessions.TryGetValue(s.OriginalTitle, out var session)) { SetStall(s, "", default); return; }
         s.ProjectPath = session.Directory;
         s.Preview = session.LastMessage;
-        s.TranscriptPath = session.Path;
         var quiet = DateTime.UtcNow - session.UpdatedUtc;
         var stall = s.Activity != "running" ? ""
             : session.PendingTool && quiet >= ApprovalAfter ? "approval"
@@ -908,12 +745,10 @@ public partial class MainWindow : Window
         _filterMode = (string)((Button)sender).Tag;
         _view.Refresh();
         UpdateFilterButtons();
-        UpdateConsole();
     }
     private void SearchBox_TextChanged(object sender, TextChangedEventArgs e)
     {
         _view?.Refresh();
-        if (_view != null) UpdateConsole();
     }
     private void Refresh_Click(object sender, RoutedEventArgs e) => RefreshSessionsInBackground();
     private void Close_Click(object sender, RoutedEventArgs e) => HidePanel(restorePrevious: true);

@@ -10,15 +10,6 @@ if (args.FirstOrDefault() == "claude")
     return;
 }
 
-// "convo <transcript.jsonl>": the conversation view's messages for a Claude Code or Codex transcript.
-if (args.FirstOrDefault() == "convo" && args.Length > 1)
-{
-    var messages = Path.GetFileName(args[1]).StartsWith("rollout-") ? Conversation.ReadCodex(args[1]) : Conversation.ReadClaude(args[1]);
-    foreach (var m in messages)
-        Console.WriteLine($"[{m.RoleLabel}] {m.Text.Replace('\n', ' ')[..Math.Min(110, m.Text.Replace('\n', ' ').Length)]}");
-    return;
-}
-
 // "perf": how long window discovery takes, cold and with the per-process cache warm.
 if (args.FirstOrDefault() == "perf")
 {

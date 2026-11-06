@@ -43,11 +43,7 @@ public sealed class SessionEntry : INotifyPropertyChanged
     /// <summary>Latest AI reply, when the source exposes it (Claude Code / Codex).</summary>
     public string Preview { get; set; } = "";
     public string? ThreadId { get; set; }
-    /// <summary>Claude Code / Codex transcript (JSONL) backing the conversation view.</summary>
-    public string TranscriptPath { get; set; } = "";
     public int TerminalTabIndex { get; set; }
-    /// <summary>Web session: the selected tab of its browser window (so the window shows it).</summary>
-    public bool TabActive { get; set; }
     /// <summary>Real app icon or favicon; null falls back to the Icon glyph.</summary>
     public System.Windows.Media.ImageSource? IconImage { get; set; }
     public System.Windows.Media.Brush IconBrush => Provider is "Claude" or "Claude Code" ? ColorBrush("#D97757") : ColorBrush("#8C8880");
