@@ -74,11 +74,11 @@ public partial class FloatingWidget : Window
         var running = sessions.Where(s => s.Activity == "running" && !s.WaitingForUser).ToList();
 
         Summary.Children.Clear();
-        AddGroup(waiting, "待回复");
-        AddGroup(stalled, "等你?");
-        AddGroup(pending, "待处理");
-        AddGroup(running, "运行中");
-        if (Summary.Children.Count == 0) Summary.Children.Add(new TextBlock { Text = "AI 都很安静", FontSize = 14 });
+        AddGroup(waiting, Loc.T("待回复", "replied"));
+        AddGroup(stalled, Loc.T("等你?", "need you?"));
+        AddGroup(pending, Loc.T("待处理", "to do"));
+        AddGroup(running, Loc.T("运行中", "running"));
+        if (Summary.Children.Count == 0) Summary.Children.Add(new TextBlock { Text = Loc.AllQuiet, FontSize = 14 });
         // How long the oldest thing has been waiting on the user drives a calm escalation of the dot.
         var oldest = waiting.Select(s => s.CompletedUtc).Concat(stalled.Select(s => s.StallSinceUtc))
             .Where(t => t != default).DefaultIfEmpty(DateTime.UtcNow).Min();
@@ -95,7 +95,7 @@ public partial class FloatingWidget : Window
         if (active.Count == 0) ActiveList.Visibility = Visibility.Collapsed;
     }
 
-    private const int MaxIconsPerGroup = 3;
+    private const int MaxIconsPerGroup = 2;
     private static readonly TimeSpan Wait = TimeSpan.FromMinutes(10), LongWait = TimeSpan.FromMinutes(30);
     private int _escalation = -1;
 
@@ -141,6 +141,13 @@ public partial class FloatingWidget : Window
     }
 
     private static SolidColorBrush Brush(string hex) => new((Color)ColorConverter.ConvertFromString(hex));
+
+    /// <summary>Demo screenshots: show the list as if hovered.</summary>
+    public void ShowExpanded()
+    {
+        Refresh();
+        if (ActiveList.Items.Count > 0) ActiveList.Visibility = Visibility.Visible;
+    }
 
     private void Window_MouseEnter(object sender, MouseEventArgs e)
     {

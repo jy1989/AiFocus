@@ -20,6 +20,8 @@ public sealed class AppSettings
     public bool ShowWidget { get; set; } = true;
     /// <summary>Panel layout: grouped by tool (true) or one mixed list ordered by urgency (false).</summary>
     public bool GroupByTool { get; set; } = true;
+    /// <summary>UI language: "auto" (follow Windows), "zh" or "en". Applied at startup.</summary>
+    public string Language { get; set; } = "auto";
     /// <summary>Widget position in DIPs; null = default (top-right of the primary screen).</summary>
     public double? WidgetLeft { get; set; }
     public double? WidgetTop { get; set; }

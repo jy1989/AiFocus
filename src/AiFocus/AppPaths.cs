@@ -5,8 +5,11 @@ namespace AiFocus;
 /// <summary>Per-user data folder, %LOCALAPPDATA%\AiFocus.</summary>
 public static class AppPaths
 {
-    public static readonly string DataDir = Path.Combine(
+    public static string DataDir { get; private set; } = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AiFocus");
+
+    /// <summary>Demo instances keep their own settings so they never touch the real ones.</summary>
+    public static void UseDemoFolder() => DataDir += "-demo";
 
     public static string File(string name) => Path.Combine(DataDir, name);
 

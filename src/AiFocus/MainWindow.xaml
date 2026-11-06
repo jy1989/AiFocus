@@ -4,7 +4,7 @@
         xmlns:local="clr-namespace:AiFocus"
         Title="AI Focus" Width="1080" Height="680" MinWidth="560" MinHeight="400"
         WindowStyle="None" ResizeMode="CanResize" Background="{StaticResource Paper}"
-        ShowInTaskbar="False" Topmost="False"
+        ShowInTaskbar="False" Topmost="True"
         FontFamily="Microsoft YaHei UI, Segoe UI" FontSize="15" Foreground="{StaticResource Ink}"
         UseLayoutRounding="True" SnapsToDevicePixels="True"
         TextOptions.TextFormattingMode="Display" TextOptions.TextRenderingMode="ClearType"
@@ -66,9 +66,9 @@
                     <TextBlock x:Name="CountsText" Foreground="{StaticResource InkMuted}" FontSize="14" VerticalAlignment="Center" Margin="14,2,0,0"/>
                 </StackPanel>
                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                    <Button Content="↻" Style="{StaticResource GhostButton}" Click="Refresh_Click" ToolTip="刷新"/>
-                    <Button Content="⚙" Style="{StaticResource GhostButton}" Click="Settings_Click" ToolTip="设置（快捷键、通知）"/>
-                    <Button Style="{StaticResource GhostButton}" Click="Close_Click" Content="✕" ToolTip="隐藏（Esc）"/>
+                    <Button Content="↻" Style="{StaticResource GhostButton}" Click="Refresh_Click" ToolTip="{x:Static local:Loc.Refresh}"/>
+                    <Button Content="⚙" Style="{StaticResource GhostButton}" Click="Settings_Click" ToolTip="{x:Static local:Loc.Settings}"/>
+                    <Button Style="{StaticResource GhostButton}" Click="Close_Click" Content="✕" ToolTip="{x:Static local:Loc.Hide}"/>
                 </StackPanel>
             </Grid>
             <Border Grid.Row="2" Background="#FBFAF7" BorderBrush="#E2DFD7" BorderThickness="1" CornerRadius="10" Padding="16,2">
@@ -78,7 +78,7 @@
                         <TextBox x:Name="SearchBox" Background="Transparent" BorderThickness="0"
                                  FontSize="17" Foreground="{StaticResource Ink}" CaretBrush="{StaticResource Ink}" Padding="0,11,0,11"
                                  VerticalContentAlignment="Center" TextChanged="SearchBox_TextChanged"/>
-                        <TextBlock Text="搜索会话、项目或 AI 工具" FontSize="17" Foreground="#AAA69D" VerticalAlignment="Center"
+                        <TextBlock Text="{x:Static local:Loc.SearchHint}" FontSize="17" Foreground="#AAA69D" VerticalAlignment="Center"
                                    IsHitTestVisible="False" Margin="2,0,0,0">
                             <TextBlock.Style>
                                 <Style TargetType="TextBlock">
@@ -95,13 +95,13 @@
                 </DockPanel>
             </Border>
             <DockPanel Grid.Row="4" LastChildFill="False">
-                <Button x:Name="AllButton" Content="全部" Tag="all" Click="Filter_Click" Style="{StaticResource FlatButton}" Margin="0,0,4,0"/>
-                <Button x:Name="AttentionButton" Content="待处理" Tag="attention" Click="Filter_Click" Style="{StaticResource FlatButton}" Margin="0,0,4,0"/>
-                <Button x:Name="FavoriteButton" Content="已收藏" Tag="favorite" Click="Filter_Click" Style="{StaticResource FlatButton}"/>
-                <Button x:Name="ConversationButton" DockPanel.Dock="Right" Content="看对话  Tab" Click="ConversationMode_Click"
-                        Style="{StaticResource FlatButton}" ToolTip="右侧显示选中会话最近几轮对话（Tab 切换）"/>
-                <Button x:Name="ConsoleButton" DockPanel.Dock="Right" Content="控制台" Click="ConsoleMode_Click" Style="{StaticResource FlatButton}" Margin="0,0,4,0"
-                        ToolTip="最大化，所有会话一屏显示：实时窗口预览或最近对话"/>
+                <Button x:Name="AllButton" Content="{x:Static local:Loc.FilterAll}" Tag="all" Click="Filter_Click" Style="{StaticResource FlatButton}" Margin="0,0,4,0"/>
+                <Button x:Name="AttentionButton" Content="{x:Static local:Loc.FilterAttention}" Tag="attention" Click="Filter_Click" Style="{StaticResource FlatButton}" Margin="0,0,4,0"/>
+                <Button x:Name="FavoriteButton" Content="{x:Static local:Loc.FilterFavorite}" Tag="favorite" Click="Filter_Click" Style="{StaticResource FlatButton}"/>
+                <Button x:Name="ConversationButton" DockPanel.Dock="Right" Content="{x:Static local:Loc.Conversation}" Click="ConversationMode_Click"
+                        Style="{StaticResource FlatButton}" ToolTip="{x:Static local:Loc.ConversationTip}"/>
+                <Button x:Name="ConsoleButton" DockPanel.Dock="Right" Content="{x:Static local:Loc.ConsoleMode}" Click="ConsoleMode_Click" Style="{StaticResource FlatButton}" Margin="0,0,4,0"
+                        ToolTip="{x:Static local:Loc.ConsoleTip}"/>
                 <Button x:Name="LayoutButton" DockPanel.Dock="Right" Content="分组" Click="Layout_Click" Style="{StaticResource FlatButton}" Margin="0,0,4,0"/>
             </DockPanel>
             <Grid Grid.Row="6">
@@ -187,18 +187,18 @@
                                     <TextBlock Text="{Binding StateText}" Foreground="{Binding StateForeground}" FontSize="12"/>
                                 </Border>
                                 <Button x:Name="FavoriteBtn" Content="{Binding FavoriteSymbol}" Tag="{Binding}" Click="Favorite_Click" Padding="5,2" FontSize="15"
-                                        Style="{StaticResource GhostButton}" ToolTip="收藏 / 取消收藏" Foreground="#C29A4E" Visibility="Collapsed"/>
+                                        Style="{StaticResource GhostButton}" ToolTip="{x:Static local:Loc.ToggleFavorite}" Foreground="#C29A4E" Visibility="Collapsed"/>
                                 <Button x:Name="AttentionBtn" Tag="{Binding}" Click="Attention_Click" Style="{StaticResource GhostButton}" Content="◷" Padding="5,2" FontSize="15"
-                                        ToolTip="标记 / 取消待处理" Visibility="Collapsed"/>
+                                        ToolTip="{x:Static local:Loc.ToggleAttention}" Visibility="Collapsed"/>
                             </StackPanel>
                             <Grid.ContextMenu>
                                 <ContextMenu DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}" FontSize="14">
-                                    <MenuItem Header="打开会话" Click="OpenMenu_Click"/>
-                                    <MenuItem Header="修改显示名称" Click="RenameMenu_Click"/>
-                                    <MenuItem Header="设置项目分组" Click="WorkspaceMenu_Click"/>
+                                    <MenuItem Header="{x:Static local:Loc.MenuOpen}" Click="OpenMenu_Click"/>
+                                    <MenuItem Header="{x:Static local:Loc.MenuRename}" Click="RenameMenu_Click"/>
+                                    <MenuItem Header="{x:Static local:Loc.MenuWorkspace}" Click="WorkspaceMenu_Click"/>
                                     <Separator/>
-                                    <MenuItem Header="标记 / 取消待处理" Click="AttentionMenu_Click"/>
-                                    <MenuItem Header="收藏 / 取消收藏" Click="FavoriteMenu_Click"/>
+                                    <MenuItem Header="{x:Static local:Loc.ToggleAttention}" Click="AttentionMenu_Click"/>
+                                    <MenuItem Header="{x:Static local:Loc.ToggleFavorite}" Click="FavoriteMenu_Click"/>
                                 </ContextMenu>
                             </Grid.ContextMenu>
                         </Grid>
@@ -230,7 +230,7 @@
                             <TextBlock x:Name="ConversationMeta" FontSize="12.5" Foreground="{StaticResource InkMuted}" Margin="0,3,0,0"
                                        TextTrimming="CharacterEllipsis"/>
                         </StackPanel>
-                        <TextBlock DockPanel.Dock="Bottom" Text="Enter 跳过去处理 · Tab 关闭对话" FontSize="12" Foreground="#A29E95"
+                        <TextBlock DockPanel.Dock="Bottom" Text="{x:Static local:Loc.ConversationFooter}" FontSize="12" Foreground="#A29E95"
                                    Margin="18,6,18,10"/>
                         <Grid>
                             <ScrollViewer x:Name="ConversationScroll" VerticalScrollBarVisibility="Auto" Padding="14,0,14,0">
@@ -264,7 +264,7 @@
             </Grid>
             <Grid Grid.Row="7" Margin="14,10,0,0">
                 <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                <TextBlock x:Name="FeedbackText" Text="↑↓ 选择 · Enter 跳转 · Esc 关闭 · 右键管理"
+                <TextBlock x:Name="FeedbackText" Text="{x:Static local:Loc.KeyHints}"
                            Foreground="#A29E95" FontSize="13" VerticalAlignment="Center"/>
                 <TextBlock Grid.Column="1" x:Name="HotkeyHint" Text="Alt + Q" Foreground="#A29E95" FontSize="13"/>
             </Grid>

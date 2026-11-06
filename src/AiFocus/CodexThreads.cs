@@ -66,7 +66,7 @@ public sealed class CodexThreads
             }
             if (info.LastWriteTimeUtc != r.WriteUtc || info.Length != r.Length) Parse(info, r);
             var activity = r.Activity == "running" && now - r.WriteUtc > StaleRunning ? "idle" : r.Activity;
-            var title = _names.TryGetValue(r.Id, out var n) && n.Length > 0 ? n : "未命名会话";
+            var title = _names.TryGetValue(r.Id, out var n) && n.Length > 0 ? n : Loc.T("未命名会话", "Untitled thread");
             result.Add(new Thread(r.Id, title, r.Directory, r.WriteUtc, activity, r.LastMessage, activity == "running" ? null : r.RepliedUtc, path));
         }
         return result;

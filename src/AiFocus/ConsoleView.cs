@@ -95,7 +95,7 @@ public sealed class ConsoleView
         {
             _pane.Children.Add(new TextBlock
             {
-                Text = "没有会话", FontSize = 15, Foreground = (Brush)_host.FindResource("InkMuted"),
+                Text = Loc.T("没有会话", "No sessions"), FontSize = 15, Foreground = (Brush)_host.FindResource("InkMuted"),
                 HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center
             });
             return;
@@ -115,7 +115,7 @@ public sealed class ConsoleView
         {
             _pane.Children.Add(new TextBlock
             {
-                Text = $"另有 {total - plan.Count} 个会话，切回列表查看", FontSize = 12.5,
+                Text = Loc.T($"另有 {total - plan.Count} 个会话，切回列表查看", $"{total - plan.Count} more sessions — switch back to the list to see them"), FontSize = 12.5,
                 Foreground = (Brush)_host.FindResource("InkMuted"),
                 HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Bottom, Margin = new Thickness(0, 0, 8, -18)
             });
@@ -164,7 +164,7 @@ public sealed class ConsoleView
         {
             DataContext = session, Margin = new Thickness(6), Padding = new Thickness(12, 10, 12, 12), CornerRadius = new CornerRadius(10),
             Background = new SolidColorBrush(Color.FromRgb(0xFB, 0xFA, 0xF7)), BorderThickness = new Thickness(3, 0, 0, 0),
-            Cursor = System.Windows.Input.Cursors.Hand, Child = layout, ToolTip = "单击切换过去"
+            Cursor = System.Windows.Input.Cursors.Hand, Child = layout, ToolTip = Loc.T("单击切换过去", "Click to switch there")
         };
         card.SetBinding(Border.BorderBrushProperty, nameof(SessionEntry.AccentBrush));
         card.MouseLeftButtonUp += (_, _) => _ = _activate(session);
@@ -184,7 +184,7 @@ public sealed class ConsoleView
         {
             panel.Children.Add(new TextBlock
             {
-                Text = card.Session.Brief.Length > 0 ? card.Session.Brief : "后台标签或窗口已最小化，没有可预览的内容",
+                Text = card.Session.Brief.Length > 0 ? card.Session.Brief : Loc.T("后台标签或窗口已最小化，没有可预览的内容", "Background tab or minimised window: nothing to preview"),
                 FontSize = 12.5, Foreground = muted, TextWrapping = TextWrapping.Wrap
             });
             return;

@@ -14,13 +14,31 @@ public partial class App : System.Windows.Application
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
+        Demo.Parse(e.Args);
+        if (Demo.Enabled)
+        {
+            // Screenshot instance: own data folder, made-up sessions, no tray, hotkeys or notifications.
+            AppPaths.UseDemoFolder();
+            Loc.Init(Demo.Language ?? "auto");
+            _window = new MainWindow();
+            _window.InitializeInvisible();
+            if (Demo.View == "widget")
+            {
+                _widget = new FloatingWidget(_window);
+                _widget.Show();
+                _widget.ShowExpanded();
+            }
+            else _window.ShowPanel();
+            return;
+        }
         AppPaths.MigrateFromAiCockpit();
+        Loc.Init(AppSettings.Load().Language);
         try { AutoStart.RefreshPath(); } catch (UnauthorizedAccessException) { }
         _singleInstance = new Mutex(initiallyOwned: true, name: @"Local\AiFocus.SingleInstance", createdNew: out bool first);
         if (!first)
         {
             var hotkey = HotkeyText.Pretty(AppSettings.Load().Hotkey);
-            System.Windows.MessageBox.Show("AI Focus 已在运行，请按 " + hotkey + " 或点击托盘图标。", "AI Focus");
+            System.Windows.MessageBox.Show(Loc.T("AI Focus 已在运行，请按 " + hotkey + " 或点击托盘图标。", "AI Focus is already running. Press " + hotkey + " or click the tray icon."), "AI Focus");
             Shutdown();
             return;
         }
@@ -30,10 +48,10 @@ public partial class App : System.Windows.Application
         if (_window.Settings.ShowWidget) _widget.Show();
 
         var menu = new WinForms.ContextMenuStrip();
-        menu.Items.Add("打开 AI Focus", null, (_, _) => Dispatcher.Invoke(() => _window?.ShowPanel()));
-        menu.Items.Add("送过去（下一个等你的会话）", null, (_, _) => Dispatcher.Invoke(() => _window?.JumpToNextWaitingAsync()));
-        menu.Items.Add("送回来（回到刚才的窗口）", null, (_, _) => Dispatcher.Invoke(() => _window?.ReturnToOwnWindow()));
-        var widgetItem = new WinForms.ToolStripMenuItem("显示悬浮窗") { CheckOnClick = true };
+        menu.Items.Add(Loc.T("打开 AI Focus", "Open AI Focus"), null, (_, _) => Dispatcher.Invoke(() => _window?.ShowPanel()));
+        menu.Items.Add(Loc.MenuNext, null, (_, _) => Dispatcher.Invoke(() => _window?.JumpToNextWaitingAsync()));
+        menu.Items.Add(Loc.MenuBack, null, (_, _) => Dispatcher.Invoke(() => _window?.ReturnToOwnWindow()));
+        var widgetItem = new WinForms.ToolStripMenuItem(Loc.T("显示悬浮窗", "Show widget")) { CheckOnClick = true };
         widgetItem.Click += (_, _) => Dispatcher.Invoke(() =>
         {
             _window.Settings.ShowWidget = widgetItem.Checked;
@@ -42,8 +60,8 @@ public partial class App : System.Windows.Application
         });
         menu.Opening += (_, _) => widgetItem.Checked = _window.Settings.ShowWidget;
         menu.Items.Add(widgetItem);
-        menu.Items.Add("设置…", null, (_, _) => Dispatcher.Invoke(() => _window?.ShowSettings()));
-        menu.Items.Add("退出", null, (_, _) => Dispatcher.Invoke(Shutdown));
+        menu.Items.Add(Loc.T("设置…", "Settings…"), null, (_, _) => Dispatcher.Invoke(() => _window?.ShowSettings()));
+        menu.Items.Add(Loc.T("退出", "Exit"), null, (_, _) => Dispatcher.Invoke(Shutdown));
         _tray = new WinForms.NotifyIcon
         {
             Icon = System.Drawing.SystemIcons.Application,
@@ -63,10 +81,19 @@ public partial class App : System.Windows.Application
         });
         _window.SettingsChanged += UpdateTrayText;
         _window.SettingsChanged += ApplyWidgetVisibility;
+        _window.RestartRequested += () =>
+        {
+            // Free the single-instance lock first, or the new process would think we are still running.
+            try { _singleInstance?.ReleaseMutex(); } catch (ApplicationException) { }
+            _singleInstance?.Dispose();
+            _singleInstance = null;
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(Environment.ProcessPath!) { UseShellExecute = true });
+            Shutdown();
+        };
         _window.Notice += text => new ToastContentBuilder().AddText(text).Show(t => t.ExpirationTime = DateTimeOffset.Now.AddMinutes(1));
-        _window.SessionCompleted += s => Notify(s, "待回复", s.Brief.Length > 0 ? s.Brief : "点击跳转查看");
-        _window.SessionStalled += s => Notify(s, s.Stall == "approval" ? "可能在等你确认" : "可能卡住了",
-            s.Stall == "approval" ? "有一个操作一直没有结果，可能需要你批准" : "几分钟没有任何进展");
+        _window.SessionCompleted += s => Notify(s, Loc.T("待回复", "replied"), s.Brief.Length > 0 ? s.Brief : Loc.T("点击跳转查看", "Click to jump there"));
+        _window.SessionStalled += s => Notify(s, s.Stall == "approval" ? Loc.T("可能在等你确认", "may need your approval") : Loc.T("可能卡住了", "may be stuck"),
+            s.Stall == "approval" ? Loc.T("有一个操作一直没有结果，可能需要你批准", "A step has been pending for a while; it may need your approval") : Loc.T("几分钟没有任何进展", "No progress for several minutes"));
     }
     private const string SessionArgument = "session";
 

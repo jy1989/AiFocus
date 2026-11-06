@@ -57,6 +57,8 @@ public partial class MainWindow : Window
     /// <summary>Raised once when a running session stops making progress (likely waiting for approval).</summary>
     public event Action<SessionEntry>? SessionStalled;
     public event Action? SettingsChanged;
+    /// <summary>The UI language changed: the app restarts so every window reloads its texts.</summary>
+    public event Action? RestartRequested;
     /// <summary>Short status message for the tray (e.g. nothing is waiting).</summary>
     public event Action<string>? Notice;
     /// <summary>Raised after every refresh (every few seconds), for the floating widget.</summary>
@@ -82,6 +84,15 @@ public partial class MainWindow : Window
     public void InitializeInvisible()
     {
         new WindowInteropHelper(this).EnsureHandle();
+        if (Demo.Enabled)
+        {
+            // Fixed made-up sessions; no refresh timer, which would replace them with real windows.
+            foreach (var s in Demo.Sessions()) _sessions.Add(s);
+            _view.Refresh();
+            UpdateCounts();
+            SessionsRefreshed?.Invoke();
+            return;
+        }
         RefreshSessionsInBackground();
         _refreshTimer.Start();
     }
@@ -94,6 +105,7 @@ public partial class MainWindow : Window
         // Windows 11 draws rounded corners and the shadow natively; no-op on Windows 10.
         int corner = DwmwcpRound;
         DwmSetWindowAttribute(handle, DwmwaWindowCornerPreference, ref corner, sizeof(int));
+        if (Demo.Enabled) { UpdateHotkeyHint(); return; } // The demo must not take the real instance's hotkeys.
         TryRegisterHotkey(HotkeyId, _settings.Hotkey);
         TryRegisterHotkey(NextHotkeyId, _settings.NextHotkey);
         TryRegisterHotkey(BackHotkeyId, _settings.BackHotkey);
@@ -119,17 +131,16 @@ public partial class MainWindow : Window
     private void UpdateHotkeyHint()
     {
         HotkeyHint.Text = HotkeyText.Pretty(_settings.Hotkey)
-            + (_settings.NextHotkey.Length > 0 ? "    送过去 " + HotkeyText.Pretty(_settings.NextHotkey) : "")
-            + (_settings.BackHotkey.Length > 0 ? "    送回来 " + HotkeyText.Pretty(_settings.BackHotkey) : "");
+            + (_settings.NextHotkey.Length > 0 ? Loc.T("    送过去 ", "    Send me there ") + HotkeyText.Pretty(_settings.NextHotkey) : "")
+            + (_settings.BackHotkey.Length > 0 ? Loc.T("    送回来 ", "    Bring me back ") + HotkeyText.Pretty(_settings.BackHotkey) : "");
     }
     private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
     {
         if (msg == WmHotkey && wParam.ToInt32() == HotkeyId)
         {
             handled = true;
-            // The panel no longer closes when it loses focus: a press brings it back to the front,
-            // and only closes it when it is already the active window.
-            if (PanelShown && IsActive) HidePanel(restorePrevious: true);
+            // Plain toggle. The panel stays on top and no longer closes when clicking elsewhere.
+            if (PanelShown) HidePanel(restorePrevious: true);
             else ShowPanel();
         }
         else if (msg == WmHotkey && wParam.ToInt32() == NextHotkeyId)
@@ -178,7 +189,7 @@ public partial class MainWindow : Window
     public void ReturnToOwnWindow()
     {
         if (PanelShown) HidePanel(restorePrevious: false);
-        if (!WindowsAdapter.Exists(_returnTo)) { Log.Write("return: nothing to return to"); Notice?.Invoke("没有可以送回去的窗口"); return; }
+        if (!WindowsAdapter.Exists(_returnTo)) { Log.Write("return: nothing to return to"); Notice?.Invoke(Loc.T("没有可以送回去的窗口", "No window to bring you back to")); return; }
         Log.Write("return to " + _returnTo);
         if (!WindowsAdapter.Activate(_returnTo)) WindowsAdapter.Flash(_returnTo);
     }
@@ -191,7 +202,7 @@ public partial class MainWindow : Window
         var next = _sessions.Where(s => s.Completed).OrderBy(s => s.CompletedUtc)
             .Concat(_sessions.Where(s => s.Stall.Length > 0 && !s.Completed).OrderBy(s => s.StallSinceUtc))
             .FirstOrDefault();
-        if (next == null) { Notice?.Invoke("没有等你回复的 AI"); return; }
+        if (next == null) { Notice?.Invoke(Loc.T("没有等你回复的 AI", "No AI is waiting for you")); return; }
         await ActivateSessionAsync(next);
         RefreshSessionsInBackground();
     }
@@ -227,7 +238,7 @@ public partial class MainWindow : Window
         Activate();
         SearchBox.Focus();
         SearchBox.SelectAll();
-        if (!_hotkeyRegistered) FeedbackText.Text = "快捷键已被其他程序占用，请在设置中更换";
+        if (!_hotkeyRegistered && !Demo.Enabled) FeedbackText.Text = HotkeyTaken;
         if (firstShow) RevealWhenRendered();
         else SetCloaked(false);
         // Shown with data from the last background refresh (≤ 3 s old); fresh data follows.
@@ -401,8 +412,10 @@ public partial class MainWindow : Window
             _view.SortDescriptions.Add(new SortDescription(nameof(SessionEntry.Sequence), ListSortDirection.Ascending));
         }
         // The button names the current layout; clicking switches to the other one.
-        LayoutButton.Content = _settings.GroupByTool ? "分组" : "混合";
-        LayoutButton.ToolTip = _settings.GroupByTool ? "当前按工具分组，点击切换为混合排列" : "当前混合排列，点击切换为按工具分组";
+        LayoutButton.Content = _settings.GroupByTool ? Loc.T("分组", "Grouped") : Loc.T("混合", "Mixed");
+        LayoutButton.ToolTip = _settings.GroupByTool
+            ? Loc.T("当前按工具分组，点击切换为混合排列", "Grouped by tool; click for one mixed list")
+            : Loc.T("当前混合排列，点击切换为按工具分组", "One mixed list; click to group by tool");
         if (_console != null) UpdateConsole();
     }
 
@@ -437,7 +450,7 @@ public partial class MainWindow : Window
         if (SessionList.SelectedItem is not SessionEntry s)
         {
             ConversationTitle.Text = ConversationMeta.Text = "";
-            ShowConversation(null, "选择一个会话，这里会显示最近几轮对话");
+            ShowConversation(null, Loc.T("选择一个会话，这里会显示最近几轮对话", "Pick a session to see its latest turns here"));
             return;
         }
         int request = ++_conversationRequest;
@@ -449,23 +462,24 @@ public partial class MainWindow : Window
         if (s.TranscriptPath.Length > 0)
         {
             messages = s.Kind == "codex-thread" ? Conversation.ReadCodex(s.TranscriptPath) : Conversation.ReadClaude(s.TranscriptPath);
-            empty = "还没有对话内容";
+            empty = Loc.T("还没有对话内容", "No conversation yet");
         }
         else if (s.Kind == "web")
         {
             var reply = await _browser.RequestConversationAsync(s);
             if (request != _conversationRequest) return; // Selection moved on while we waited.
-            if (reply == null) empty = "读取不到这个标签页的对话。\n请在 chrome://extensions 里把 AI Focus 扩展重新加载到最新版本，并刷新一下该页面。";
-            else if (!reply.Supported) empty = "这个网站暂不支持读取对话\n（目前支持 ChatGPT、Claude、Gemini）";
+            if (reply == null) empty = Loc.T("读取不到这个标签页的对话。\n请在 chrome://extensions 里把 AI Focus 扩展重新加载到最新版本，并刷新一下该页面。",
+                "Couldn't read this tab's conversation.\nReload the AI Focus extension in chrome://extensions and refresh the page.");
+            else if (!reply.Supported) empty = Loc.T("这个网站暂不支持读取对话\n（目前支持 ChatGPT、Claude、Gemini）", "Reading conversations isn't supported on this site yet\n(supported: ChatGPT, Claude, Gemini)");
             else
             {
                 messages = reply.Messages.Select(m => new ChatMessage(m.Role == "user", m.Text)).ToList();
-                empty = "页面上还没有对话";
+                empty = Loc.T("页面上还没有对话", "No conversation on the page yet");
             }
         }
         else empty = s.Provider == "Claude Code"
-            ? "没有找到这个会话的记录\n（终端标题和 Claude Code 会话记录没对上）"
-            : "这个会话没有可读取的对话记录";
+            ? Loc.T("没有找到这个会话的记录\n（终端标题和 Claude Code 会话记录没对上）", "No transcript found for this session\n(the terminal title didn't match a Claude Code session)")
+            : Loc.T("这个会话没有可读取的对话记录", "This session has no readable conversation");
 
         // Refreshes run every few seconds: only re-render (and reset the scroll) when something changed.
         var signature = s.RuntimeKey + "|" + empty + "|" + string.Join("\u0001", messages?.Select(m => m.Text.Length + ":" + m.Text[..Math.Min(40, m.Text.Length)]) ?? Array.Empty<string>());
@@ -554,16 +568,16 @@ public partial class MainWindow : Window
             s.Changed(null);
         }
         else if (s.Kind == "web")
-            Notice?.Invoke("浏览器扩展没有连接，无法切换到「" + s.DisplayTitle + "」");
+            Notice?.Invoke(Loc.T("浏览器扩展没有连接，无法切换到「" + s.DisplayTitle + "」", "Browser extension not connected; can't switch to \"" + s.DisplayTitle + "\""));
         else if (s.Kind != "codex-thread" && WindowsAdapter.Exists(s.WindowHandle))
         {
             // Still open; Windows just refused to hand over focus. Point at it instead of claiming it closed.
             WindowsAdapter.Flash(s.WindowHandle);
-            Notice?.Invoke("Windows 没有允许切换，已在任务栏高亮「" + s.DisplayTitle + "」");
+            Notice?.Invoke(Loc.T("Windows 没有允许切换，已在任务栏高亮「" + s.DisplayTitle + "」", "Windows refused the switch; \"" + s.DisplayTitle + "\" is highlighted in the taskbar"));
         }
         else
         {
-            Notice?.Invoke("「" + s.DisplayTitle + "」已经关闭");
+            Notice?.Invoke(Loc.T("「" + s.DisplayTitle + "」已经关闭", "\"" + s.DisplayTitle + "\" has been closed"));
             RefreshSessions();
         }
     }
@@ -591,7 +605,7 @@ public partial class MainWindow : Window
             if (host.Contains("muse")) return "Muse";
         }
         catch { }
-        return "网页 AI";
+        return Loc.T("网页 AI", "Web AI");
     }
     private static string PersistentWebKey(string profile, string url)
     {
@@ -628,15 +642,19 @@ public partial class MainWindow : Window
     }
 
     /// <summary>Synchronous refresh, for actions that need fresh data right now (jumps, toast clicks).</summary>
-    private void RefreshSessions() => Apply(Gather());
+    private void RefreshSessions()
+    {
+        if (!Demo.Enabled) Apply(Gather());
+    }
 
     /// <summary>Background refresh for the timer and for opening the panel: the UI never waits on it.</summary>
     private async void RefreshSessionsInBackground()
     {
-        if (_refreshPending) return;
+        // Demo sessions are made up; a real refresh would replace them with the user's actual windows.
+        if (_refreshPending || Demo.Enabled) return;
         _refreshPending = true;
         try { Apply(await Task.Run(Gather)); }
-        catch (Exception ex) { FeedbackText.Text = "刷新失败：" + ex.Message; }
+        catch (Exception ex) { FeedbackText.Text = Loc.T("刷新失败：", "Refresh failed: ") + ex.Message; }
         finally { _refreshPending = false; }
     }
 
@@ -677,7 +695,7 @@ public partial class MainWindow : Window
                         var t = Upsert(seen, existing, tabKey, "window:windowsterminal:" + clean.ToLowerInvariant(), out bool tabIsNew);
                         t.Provider = provider;
                         t.Kind = "terminal-tab";
-                        t.SourceName = "Windows Terminal 标签页";
+                        t.SourceName = Loc.T("Windows Terminal 标签页", "Windows Terminal tab");
                         t.OriginalTitle = clean;
                         t.WindowHandle = w.Handle;
                         t.TerminalTabIndex = tab.Index;
@@ -697,7 +715,7 @@ public partial class MainWindow : Window
                 // A terminal can switch between plain shell and Claude Code, so re-classify every refresh.
                 s.Provider = w.Provider;
                 s.Kind = w.Kind;
-                s.SourceName = w.Process + (w.Kind == "browser-window" ? " · 浏览器窗口" : "");
+                s.SourceName = w.Process + (w.Kind == "browser-window" ? Loc.T(" · 浏览器窗口", " · browser window") : "");
                 s.OriginalTitle = displayTitle;
                 s.WindowHandle = w.Handle;
                 // Claude Code inside a terminal would only get the terminal icon; keep the Claude glyph instead.
@@ -712,7 +730,7 @@ public partial class MainWindow : Window
             {
                 var s = Upsert(seen, existing, "tab:" + profile + ":" + tab.Id, PersistentWebKey(profile, tab.Url), out bool isNew);
                 s.Kind = "web";
-                s.SourceName = browser + " 标签页";
+                s.SourceName = browser + Loc.T(" 标签页", " tab");
                 s.ProfileId = profile;
                 s.Provider = WebProvider(tab);
                 s.OriginalTitle = WebTitle(tab, s.Provider);
@@ -740,7 +758,7 @@ public partial class MainWindow : Window
                     s = new SessionEntry
                     {
                         RuntimeKey = key, PersistenceKey = key, ThreadId = t.Id,
-                        Kind = "codex-thread", Provider = "Codex", SourceName = "Codex 会话"
+                        Kind = "codex-thread", Provider = "Codex", SourceName = Loc.T("Codex 会话", "Codex thread")
                     };
                     _store.Apply(s);
                     _sessions.Add(s);
@@ -775,7 +793,7 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            FeedbackText.Text = "刷新失败：" + ex.Message;
+            FeedbackText.Text = Loc.T("刷新失败：", "Refresh failed: ") + ex.Message;
         }
     }
 
@@ -860,13 +878,13 @@ public partial class MainWindow : Window
         int running = _sessions.Count(s => s.Activity == "running" && !s.WaitingForUser);
         int done = _sessions.Count(s => s.Completed && !s.NeedsAttention), pending = _sessions.Count(s => s.NeedsAttention);
         int stalled = _sessions.Count(s => s.Stall.Length > 0 && !s.Completed && !s.NeedsAttention);
-        if (done > 0) parts.Add(done + " 个待回复");
-        if (stalled > 0) parts.Add(stalled + " 个可能在等你");
-        if (pending > 0) parts.Add(pending + " 个待处理");
-        if (running > 0) parts.Add(running + " 个运行中");
+        if (done > 0) parts.Add(Loc.T(done + " 个待回复", done + " replied"));
+        if (stalled > 0) parts.Add(Loc.T(stalled + " 个可能在等你", stalled + " may need you"));
+        if (pending > 0) parts.Add(Loc.T(pending + " 个待处理", pending + " to do"));
+        if (running > 0) parts.Add(Loc.T(running + " 个运行中", running + " running"));
         CountsText.Text = string.Join("  ·  ", parts);
-        AttentionButton.Content = "待处理 " + _sessions.Count(s => s.WaitingForUser);
-        AllButton.Content = "全部 " + _sessions.Count;
+        AttentionButton.Content = Loc.FilterAttention + " " + _sessions.Count(s => s.WaitingForUser);
+        AllButton.Content = Loc.FilterAll + " " + _sessions.Count;
     }
     private const double MinTileWidth = 260, TileGap = 8, ScrollBarAllowance = 20;
     private void UpdateTileWidth()
@@ -939,13 +957,13 @@ public partial class MainWindow : Window
     private void RenameMenu_Click(object sender, RoutedEventArgs e)
     {
         if (MenuSession(sender) is not SessionEntry s) return;
-        var name = AskText("修改会话名称", "自定义显示名称（留空恢复原标题）", s.CustomTitle);
+        var name = AskText(Loc.T("修改会话名称", "Rename session"), Loc.T("自定义显示名称（留空恢复原标题）", "Display name (leave empty to restore the original title)"), s.CustomTitle);
         if (name != null) Change(s, () => s.CustomTitle = name);
     }
     private void WorkspaceMenu_Click(object sender, RoutedEventArgs e)
     {
         if (MenuSession(sender) is not SessionEntry s) return;
-        var name = AskText("设置工作区", "项目名称（留空取消分组）", s.Workspace);
+        var name = AskText(Loc.T("设置项目", "Set project"), Loc.T("项目名称（留空则用自动识别的目录）", "Project name (leave empty to use the detected folder)"), s.Workspace);
         if (name != null) Change(s, () => s.Workspace = name);
     }
 
@@ -959,7 +977,7 @@ public partial class MainWindow : Window
         layout.Children.Add(new TextBlock { Text = prompt, Margin = new Thickness(0, 0, 0, 12) });
         var input = new TextBox { Text = existing, FontSize = 15, Padding = new Thickness(8) };
         layout.Children.Add(input);
-        var ok = new Button { Content = "保存", Width = 90, Height = 34, IsDefault = true, HorizontalAlignment = System.Windows.HorizontalAlignment.Right, Margin = new Thickness(0, 12, 0, 0) };
+        var ok = new Button { Content = Loc.T("保存", "Save"), Width = 90, Height = 34, IsDefault = true, HorizontalAlignment = System.Windows.HorizontalAlignment.Right, Margin = new Thickness(0, 12, 0, 0) };
         ok.Click += (_, _) => { dialog.DialogResult = true; };
         layout.Children.Add(ok);
         dialog.Content = layout;
@@ -974,7 +992,7 @@ public partial class MainWindow : Window
     {
         RefreshSessions();
         var s = _sessions.FirstOrDefault(x => x.RuntimeKey == runtimeKey);
-        if (s == null) { Notice?.Invoke("这个会话已经关闭了"); return Task.CompletedTask; }
+        if (s == null) { Notice?.Invoke(Loc.T("这个会话已经关闭了", "That session has been closed")); return Task.CompletedTask; }
         return ActivateSessionAsync(s);
     }
 
@@ -988,13 +1006,13 @@ public partial class MainWindow : Window
         ReleaseHotkeys();
         var muted = (System.Windows.Media.Brush)FindResource("InkMuted");
 
-        var dialog = new Window { Title = "AI Focus 设置", Width = 480, SizeToContent = SizeToContent.Height, Owner = this,
+        var dialog = new Window { Title = Loc.T("AI Focus 设置", "AI Focus settings"), Width = 480, SizeToContent = SizeToContent.Height, Owner = this,
             WindowStartupLocation = WindowStartupLocation.CenterOwner, ResizeMode = ResizeMode.NoResize,
             Background = (System.Windows.Media.Brush)FindResource("Paper"), FontFamily = FontFamily, FontSize = 15,
             Foreground = (System.Windows.Media.Brush)FindResource("Ink") };
         TextOptions.SetTextFormattingMode(dialog, TextFormattingMode.Display);
         var layout = new StackPanel { Margin = new Thickness(24, 20, 24, 20) };
-        var hint = new TextBlock { Text = "点击输入框后按下新的组合键（需包含 Ctrl、Alt 或 Win）；Backspace 清空", FontSize = 13,
+        var hint = new TextBlock { Text = Loc.T("点击输入框后按下新的组合键（需包含 Ctrl、Alt 或 Win）；Backspace 清空", "Click a box and press the new key combination (with Ctrl, Alt or Win); Backspace clears it"), FontSize = 13,
             Foreground = muted, Margin = new Thickness(0, 10, 0, 0), TextWrapping = TextWrapping.Wrap };
 
         // Returns a getter for the chosen hotkey text ("" = disabled when allowEmpty).
@@ -1002,7 +1020,7 @@ public partial class MainWindow : Window
         {
             string chosen = current;
             layout.Children.Add(new TextBlock { Text = label, FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, topMargin, 0, 8) });
-            var box = new TextBox { Text = chosen.Length > 0 ? HotkeyText.Pretty(chosen) : "未启用", IsReadOnly = true, FontSize = 17,
+            var box = new TextBox { Text = chosen.Length > 0 ? HotkeyText.Pretty(chosen) : Loc.T("未启用", "Off"), IsReadOnly = true, FontSize = 17,
                 Padding = new Thickness(10, 8, 10, 8), IsReadOnlyCaretVisible = false, Background = Brushes.White };
             box.PreviewKeyDown += (_, ke) =>
             {
@@ -1012,73 +1030,81 @@ public partial class MainWindow : Window
                 if (allowEmpty && Keyboard.Modifiers == ModifierKeys.None && key is Key.Back or Key.Delete)
                 {
                     chosen = "";
-                    box.Text = "未启用";
+                    box.Text = Loc.T("未启用", "Off");
                     return;
                 }
                 var text = HotkeyText.Format(Keyboard.Modifiers, key);
                 if (!HotkeyText.TryParse(text, out uint _m, out uint _vk))
                 {
-                    hint.Text = "“" + HotkeyText.Pretty(text) + "” 不可用：需要包含 Ctrl、Alt 或 Win";
+                    hint.Text = Loc.T("“" + HotkeyText.Pretty(text) + "” 不可用：需要包含 Ctrl、Alt 或 Win", "\"" + HotkeyText.Pretty(text) + "\" can't be used: include Ctrl, Alt or Win");
                     return;
                 }
                 chosen = text;
                 box.Text = HotkeyText.Pretty(text);
-                hint.Text = "保存后生效";
+                hint.Text = Loc.T("保存后生效", "Takes effect when saved");
             };
             layout.Children.Add(box);
-            box.Tag = (Action<string>)(value => { chosen = value; box.Text = value.Length > 0 ? HotkeyText.Pretty(value) : "未启用"; });
+            box.Tag = (Action<string>)(value => { chosen = value; box.Text = value.Length > 0 ? HotkeyText.Pretty(value) : Loc.T("未启用", "Off"); });
             return () => chosen;
         }
-        var toggle = AddCapture("呼出 / 隐藏面板", _settings.Hotkey, allowEmpty: false, 0);
+        var toggle = AddCapture(Loc.T("呼出 / 隐藏面板", "Show / hide the panel"), _settings.Hotkey, allowEmpty: false, 0);
         var toggleBox = (TextBox)layout.Children[^1];
-        var next = AddCapture("送过去：跳到下一个等你的会话", _settings.NextHotkey, allowEmpty: true, 18);
+        var next = AddCapture(Loc.T("送过去：跳到下一个等你的会话", "Send me there: jump to the next session waiting for you"), _settings.NextHotkey, allowEmpty: true, 18);
         var nextBox = (TextBox)layout.Children[^1];
-        layout.Children.Add(new TextBlock { Text = "按完成先后依次跳转，无需打开面板", FontSize = 13, Foreground = muted, Margin = new Thickness(0, 6, 0, 0) });
-        var back = AddCapture("送回来：回到刚才自己在用的窗口", _settings.BackHotkey, allowEmpty: true, 18);
+        layout.Children.Add(new TextBlock { Text = Loc.T("按完成先后依次跳转，无需打开面板", "In the order they finished, without opening the panel"), FontSize = 13, Foreground = muted, Margin = new Thickness(0, 6, 0, 0) });
+        var back = AddCapture(Loc.T("送回来：回到刚才自己在用的窗口", "Bring me back: return to the window you were working in"), _settings.BackHotkey, allowEmpty: true, 18);
         var backBox = (TextBox)layout.Children[^1];
         layout.Children.Add(hint);
 
-        var autoStart = new System.Windows.Controls.CheckBox { Content = "开机自动启动",
+        var autoStart = new System.Windows.Controls.CheckBox { Content = Loc.T("开机自动启动", "Start with Windows"),
             IsChecked = AutoStart.IsEnabled, Margin = new Thickness(0, 20, 0, 0), VerticalContentAlignment = VerticalAlignment.Center };
         layout.Children.Add(autoStart);
 
-        var notify = new System.Windows.Controls.CheckBox { Content = "AI 回复完成时弹出通知",
+        var notify = new System.Windows.Controls.CheckBox { Content = Loc.T("AI 回复完成时弹出通知", "Notify me when an AI finishes replying"),
             IsChecked = _settings.NotifyOnComplete, Margin = new Thickness(0, 10, 0, 0), VerticalContentAlignment = VerticalAlignment.Center };
         layout.Children.Add(notify);
-        var widget = new System.Windows.Controls.CheckBox { Content = "显示悬浮窗（置顶的状态胶囊）",
+        var widget = new System.Windows.Controls.CheckBox { Content = Loc.T("显示悬浮窗（置顶的状态胶囊）", "Show the floating status widget"),
             IsChecked = _settings.ShowWidget, Margin = new Thickness(0, 10, 0, 0), VerticalContentAlignment = VerticalAlignment.Center };
         layout.Children.Add(widget);
+        // UI language; texts are read when windows load, so a change restarts AI Focus.
+        var languageBefore = _settings.Language;
+        layout.Children.Add(new TextBlock { Text = "语言 / Language", FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 18, 0, 6) });
+        var language = new System.Windows.Controls.ComboBox { FontSize = 14, Padding = new Thickness(8, 4, 8, 4) };
+        foreach (var (tag, label) in new[] { ("auto", Loc.T("自动（跟随系统）", "Automatic (follow Windows)")), ("zh", "中文"), ("en", "English") })
+            language.Items.Add(new ComboBoxItem { Content = label, Tag = tag, IsSelected = _settings.Language == tag });
+        if (language.SelectedItem == null) language.SelectedIndex = 0;
+        layout.Children.Add(language);
 
         var buttons = new StackPanel { Orientation = System.Windows.Controls.Orientation.Horizontal, HorizontalAlignment = System.Windows.HorizontalAlignment.Right, Margin = new Thickness(0, 24, 0, 0) };
-        var reset = new Button { Content = "恢复默认", Padding = new Thickness(14, 6, 14, 6), Margin = new Thickness(0, 0, 8, 0) };
-        var cancel = new Button { Content = "取消", Padding = new Thickness(14, 6, 14, 6), Margin = new Thickness(0, 0, 8, 0), IsCancel = true };
-        var save = new Button { Content = "保存", Padding = new Thickness(18, 6, 18, 6), IsDefault = true };
+        var reset = new Button { Content = Loc.T("恢复默认", "Defaults"), Padding = new Thickness(14, 6, 14, 6), Margin = new Thickness(0, 0, 8, 0) };
+        var cancel = new Button { Content = Loc.T("取消", "Cancel"), Padding = new Thickness(14, 6, 14, 6), Margin = new Thickness(0, 0, 8, 0), IsCancel = true };
+        var save = new Button { Content = Loc.T("保存", "Save"), Padding = new Thickness(18, 6, 18, 6), IsDefault = true };
         reset.Click += (_, _) =>
         {
             ((Action<string>)toggleBox.Tag)(AppSettings.DefaultHotkey);
             ((Action<string>)nextBox.Tag)(AppSettings.DefaultNextHotkey);
             ((Action<string>)backBox.Tag)(AppSettings.DefaultBackHotkey);
-            hint.Text = "保存后生效";
+            hint.Text = Loc.T("保存后生效", "Takes effect when saved");
         };
         save.Click += (_, _) =>
         {
             var chosen = new[] { toggle(), next(), back() }.Where(k => k.Length > 0).ToList();
             if (chosen.Count != chosen.Distinct().Count())
             {
-                hint.Text = "快捷键不能重复";
+                hint.Text = Loc.T("快捷键不能重复", "Each hotkey must be different");
                 return;
             }
             foreach (var (id, text) in new[] { (HotkeyId, toggle()), (NextHotkeyId, next()), (BackHotkeyId, back()) })
             {
                 if (TryRegisterHotkey(id, text)) continue;
                 ReleaseHotkeys();
-                hint.Text = "“" + HotkeyText.Pretty(text) + "” 已被其他程序占用，请换一个组合";
+                hint.Text = Loc.T("“" + HotkeyText.Pretty(text) + "” 已被其他程序占用，请换一个组合", "\"" + HotkeyText.Pretty(text) + "\" is taken by another program; pick another combination");
                 return;
             }
             try { AutoStart.Set(autoStart.IsChecked == true); }
             catch (Exception ex) when (ex is UnauthorizedAccessException or System.Security.SecurityException)
             {
-                hint.Text = "无法写入开机启动项：" + ex.Message;
+                hint.Text = Loc.T("无法写入开机启动项：", "Couldn't set start with Windows: ") + ex.Message;
                 return;
             }
             _settings.Hotkey = toggle();
@@ -1086,6 +1112,7 @@ public partial class MainWindow : Window
             _settings.BackHotkey = back();
             _settings.NotifyOnComplete = notify.IsChecked == true;
             _settings.ShowWidget = widget.IsChecked == true;
+            _settings.Language = (language.SelectedItem as ComboBoxItem)?.Tag as string ?? "auto";
             _settings.Save();
             dialog.DialogResult = true;
         };
@@ -1101,10 +1128,11 @@ public partial class MainWindow : Window
         if (!_registeredHotkeys.Contains(NextHotkeyId)) TryRegisterHotkey(NextHotkeyId, _settings.NextHotkey);
         if (!_registeredHotkeys.Contains(BackHotkeyId)) TryRegisterHotkey(BackHotkeyId, _settings.BackHotkey);
         UpdateHotkeyHint();
-        FeedbackText.Text = _hotkeyRegistered ? DefaultFeedback : "快捷键已被其他程序占用，请在设置中更换";
+        FeedbackText.Text = _hotkeyRegistered ? Loc.KeyHints : HotkeyTaken;
         SettingsChanged?.Invoke();
+        if (_settings.Language != languageBefore) RestartRequested?.Invoke();
     }
-    private const string DefaultFeedback = "↑↓ 选择 · Enter 跳转 · Esc 关闭 · 右键管理";
+    private static string HotkeyTaken => Loc.T("快捷键已被其他程序占用，请在设置中更换", "The hotkey is taken by another program; change it in Settings");
 
     public void DisposeServices()
     {

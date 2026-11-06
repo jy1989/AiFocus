@@ -93,10 +93,10 @@ public sealed class SessionEntry : INotifyPropertyChanged
     {
         0 => "Claude",
         1 => "Codex",
-        2 => "浏览器 · 网页 AI",
-        3 => "编辑器",
-        5 => "其他 AI 终端",
-        _ => "AI 桌面应用"
+        2 => Loc.T("浏览器 · 网页 AI", "Browser · web AI"),
+        3 => Loc.T("编辑器", "Editors"),
+        5 => Loc.T("其他 AI 终端", "Other AI terminals"),
+        _ => Loc.T("AI 桌面应用", "AI desktop apps")
     };
     public string Icon => Provider switch
     {
@@ -108,29 +108,40 @@ public sealed class SessionEntry : INotifyPropertyChanged
         _ => IsBrowser ? "◉" : Kind is "terminal" or "terminal-tab" ? "⌁" : Kind == "editor" ? "⟨⟩" : "▣"
     };
     // Only meaningful states get a badge; plain "open" windows show nothing.
-    public string StateText => NeedsAttention ? "待处理"
-        : Completed ? "待回复"
-        : Stall == "approval" ? "等你确认?"
-        : Stall == "stuck" ? "可能卡住"
-        : Activity == "running" ? "运行中"
-        : IsFocused ? "当前使用"
+    /// <summary>Language-independent state behind the badge (colours key off this, not the text).</summary>
+    public string StateKey => NeedsAttention ? "todo"
+        : Completed ? "replied"
+        : Stall == "approval" ? "approval"
+        : Stall == "stuck" ? "stuck"
+        : Activity == "running" ? "running"
+        : IsFocused ? "focused"
         : "";
-    public System.Windows.Visibility StateVisibility => StateText.Length > 0 ? System.Windows.Visibility.Visible : System.Windows.Visibility.Collapsed;
-    // Muted tones: only states that concern the user carry colour, everything else stays neutral.
-    public System.Windows.Media.Brush StateBackground => StateText switch
+    public string StateText => StateKey switch
     {
-        "待处理" => ColorBrush("#F6EAD3"),
-        "待回复" => ColorBrush("#E1EEE5"),
-        "等你确认?" or "可能卡住" => ColorBrush("#F7E4D8"),
-        "运行中" => ColorBrush("#E3E9F1"),
+        "todo" => Loc.T("待处理", "To do"),
+        "replied" => Loc.T("待回复", "Replied"),
+        "approval" => Loc.T("等你确认?", "Needs you?"),
+        "stuck" => Loc.T("可能卡住", "Stuck?"),
+        "running" => Loc.T("运行中", "Running"),
+        "focused" => Loc.T("当前使用", "In use"),
+        _ => ""
+    };
+    public System.Windows.Visibility StateVisibility => StateKey.Length > 0 ? System.Windows.Visibility.Visible : System.Windows.Visibility.Collapsed;
+    // Muted tones: only states that concern the user carry colour, everything else stays neutral.
+    public System.Windows.Media.Brush StateBackground => StateKey switch
+    {
+        "todo" => ColorBrush("#F6EAD3"),
+        "replied" => ColorBrush("#E1EEE5"),
+        "approval" or "stuck" => ColorBrush("#F7E4D8"),
+        "running" => ColorBrush("#E3E9F1"),
         _ => ColorBrush("#EAE8E2")
     };
-    public System.Windows.Media.Brush StateForeground => StateText switch
+    public System.Windows.Media.Brush StateForeground => StateKey switch
     {
-        "待处理" => ColorBrush("#8A5A12"),
-        "待回复" => ColorBrush("#2F6B4A"),
-        "等你确认?" or "可能卡住" => ColorBrush("#9A4A1C"),
-        "运行中" => ColorBrush("#3E5F86"),
+        "todo" => ColorBrush("#8A5A12"),
+        "replied" => ColorBrush("#2F6B4A"),
+        "approval" or "stuck" => ColorBrush("#9A4A1C"),
+        "running" => ColorBrush("#3E5F86"),
         _ => ColorBrush("#7A7F87")
     };
     /// <summary>Colour strip at the row's left edge; transparent unless the session needs the user.</summary>
@@ -140,12 +151,12 @@ public sealed class SessionEntry : INotifyPropertyChanged
         : Activity == "running" ? ColorBrush("#8FA6C4")
         : System.Windows.Media.Brushes.Transparent;
     public string FavoriteSymbol => Favorite ? "★" : "☆";
-    public string AttentionSymbol => NeedsAttention ? "✓ 已标记" : "设为待处理";
     /// <summary>Short status for the floating widget, e.g. "等了 12 分钟".</summary>
-    public string WaitText => Completed && CompletedUtc != default ? (Ago(CompletedUtc) is { Length: > 0 } ago ? "等了 " + ago : "刚回复")
-        : NeedsAttention ? "待处理"
-        : Stall.Length > 0 ? StateText + (Ago(StallSinceUtc) is { Length: > 0 } stalled ? " · " + stalled + "无进展" : "")
-        : Activity == "running" ? "运行中"
+    public string WaitText => Completed && CompletedUtc != default
+            ? (Ago(CompletedUtc) is { Length: > 0 } ago ? Loc.T("等了 " + ago, "waiting " + ago) : Loc.T("刚回复", "just replied"))
+        : NeedsAttention ? StateText
+        : Stall.Length > 0 ? StateText + (Ago(StallSinceUtc) is { Length: > 0 } stalled ? " · " + Loc.T(stalled + "无进展", "no progress for " + stalled) : "")
+        : Activity == "running" ? StateText
         : "";
 
     private static readonly char[] MarkdownLead = { '#', '>', '*', '-', '+', '•', ' ', '\t' };
@@ -179,8 +190,8 @@ public sealed class SessionEntry : INotifyPropertyChanged
     {
         var delta = DateTime.UtcNow - utc;
         if (delta.TotalMinutes < 1) return "";
-        if (delta.TotalMinutes < 60) return (int)delta.TotalMinutes + " 分钟";
-        return (int)delta.TotalHours + " 小时";
+        if (delta.TotalMinutes < 60) return Loc.T((int)delta.TotalMinutes + " 分钟", (int)delta.TotalMinutes + " min");
+        return Loc.T((int)delta.TotalHours + " 小时", (int)delta.TotalHours + " h");
     }
     public string LastUsedText
     {
@@ -188,10 +199,10 @@ public sealed class SessionEntry : INotifyPropertyChanged
         {
             if (LastFocusedUtc == DateTime.MinValue) return "";
             var delta = DateTime.UtcNow - LastFocusedUtc;
-            if (delta.TotalMinutes < 1) return "刚刚";
-            if (delta.TotalMinutes < 60) return ((int)delta.TotalMinutes) + " 分钟前";
-            if (delta.TotalHours < 24) return ((int)delta.TotalHours) + " 小时前";
-            return ((int)delta.TotalDays) + " 天前";
+            if (delta.TotalMinutes < 1) return Loc.T("刚刚", "just now");
+            if (delta.TotalMinutes < 60) return Loc.T((int)delta.TotalMinutes + " 分钟前", (int)delta.TotalMinutes + " min ago");
+            if (delta.TotalHours < 24) return Loc.T((int)delta.TotalHours + " 小时前", (int)delta.TotalHours + " h ago");
+            return Loc.T((int)delta.TotalDays + " 天前", (int)delta.TotalDays + " d ago");
         }
     }
     private static System.Windows.Media.Brush ColorBrush(string hex) => new SolidColorBrush((System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString(hex));

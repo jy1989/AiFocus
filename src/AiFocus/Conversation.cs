@@ -6,7 +6,7 @@ namespace AiFocus;
 
 public sealed record ChatMessage(bool FromUser, string Text)
 {
-    public string RoleLabel => FromUser ? "你" : "AI";
+    public string RoleLabel => FromUser ? Loc.T("你", "You") : "AI";
 }
 
 /// <summary>
