@@ -11,7 +11,7 @@
         PreviewKeyDown="Window_PreviewKeyDown">
     <!-- No AllowsTransparency / DropShadowEffect: both force grayscale, bitmap-scaled (blurry) text.
          WindowChrome removes the frame; rounded corners and shadow come from DWM.
-         Visual direction: a calm, low-stimulus focus tool. Warm paper background, borderless rows,
+         Visual direction: a calm focus tool in the app icon's blues. Cool pale background, borderless rows,
          colour reserved for sessions that actually need the user (待处理 / 运行中). -->
     <WindowChrome.WindowChrome>
         <WindowChrome CaptionHeight="0" GlassFrameThickness="0" ResizeBorderThickness="6"
@@ -46,7 +46,7 @@
             <Setter Property="Foreground" Value="{StaticResource InkMuted}"/>
         </Style>
     </Window.Resources>
-    <Border BorderBrush="#DEDBD3" BorderThickness="1">
+    <Border BorderBrush="#D5DFF0" BorderThickness="1">
         <Grid Margin="30,20,30,14">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
@@ -70,14 +70,14 @@
                     <Button Style="{StaticResource GhostButton}" Click="Close_Click" Content="✕" ToolTip="{x:Static local:Loc.Hide}"/>
                 </StackPanel>
             </Grid>
-            <Border Grid.Row="2" Background="#FBFAF7" BorderBrush="#E2DFD7" BorderThickness="1" CornerRadius="10" Padding="16,2">
+            <Border Grid.Row="2" Background="#FCFDFF" BorderBrush="#D9E3F3" BorderThickness="1" CornerRadius="10" Padding="16,2">
                 <DockPanel>
                     <TextBlock DockPanel.Dock="Left" Text="⌕" FontSize="22" Foreground="{StaticResource InkMuted}" VerticalAlignment="Center" Margin="0,0,10,0"/>
                     <Grid>
                         <TextBox x:Name="SearchBox" Background="Transparent" BorderThickness="0"
                                  FontSize="17" Foreground="{StaticResource Ink}" CaretBrush="{StaticResource Ink}" Padding="0,11,0,11"
                                  VerticalContentAlignment="Center" TextChanged="SearchBox_TextChanged"/>
-                        <TextBlock Text="{x:Static local:Loc.SearchHint}" FontSize="17" Foreground="#AAA69D" VerticalAlignment="Center"
+                        <TextBlock Text="{x:Static local:Loc.SearchHint}" FontSize="17" Foreground="#93A0B8" VerticalAlignment="Center"
                                    IsHitTestVisible="False" Margin="2,0,0,0">
                             <TextBlock.Style>
                                 <Style TargetType="TextBlock">
@@ -110,7 +110,7 @@
                             <DataTemplate>
                                 <StackPanel Orientation="Horizontal" Margin="4,14,0,6">
                                     <TextBlock Text="{Binding Name}" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource InkMuted}"/>
-                                    <TextBlock Text="{Binding ItemCount}" FontSize="13" Foreground="#AAA69D" Margin="8,0,0,0"/>
+                                    <TextBlock Text="{Binding ItemCount}" FontSize="13" Foreground="#93A0B8" Margin="8,0,0,0"/>
                                 </StackPanel>
                             </DataTemplate>
                         </GroupStyle.HeaderTemplate>
@@ -132,15 +132,15 @@
                         <Setter Property="Template">
                             <Setter.Value>
                                 <ControlTemplate TargetType="ListBoxItem">
-                                    <Border x:Name="ItemBorder" Background="#FBFAF7" CornerRadius="9">
+                                    <Border x:Name="ItemBorder" Background="#FCFDFF" CornerRadius="9">
                                         <ContentPresenter/>
                                     </Border>
                                     <ControlTemplate.Triggers>
                                         <Trigger Property="IsMouseOver" Value="True">
-                                            <Setter TargetName="ItemBorder" Property="Background" Value="#EDEBE5"/>
+                                            <Setter TargetName="ItemBorder" Property="Background" Value="#E4EDFC"/>
                                         </Trigger>
                                         <Trigger Property="IsSelected" Value="True">
-                                            <Setter TargetName="ItemBorder" Property="Background" Value="#E4E6E9"/>
+                                            <Setter TargetName="ItemBorder" Property="Background" Value="#D6E4FD"/>
                                         </Trigger>
                                     </ControlTemplate.Triggers>
                                 </ControlTemplate>
@@ -175,7 +175,7 @@
                                     <TextBlock Text="{Binding StateText}" Foreground="{Binding StateForeground}" FontSize="12"/>
                                 </Border>
                                 <Button x:Name="FavoriteBtn" Content="{Binding FavoriteSymbol}" Tag="{Binding}" Click="Favorite_Click" Padding="5,2" FontSize="15"
-                                        Style="{StaticResource GhostButton}" ToolTip="{x:Static local:Loc.ToggleFavorite}" Foreground="#C29A4E" Visibility="Collapsed"/>
+                                        Style="{StaticResource GhostButton}" ToolTip="{x:Static local:Loc.ToggleFavorite}" Foreground="#D9A02E" Visibility="Collapsed"/>
                                 <Button x:Name="AttentionBtn" Tag="{Binding}" Click="Attention_Click" Style="{StaticResource GhostButton}" Content="◷" Padding="5,2" FontSize="15"
                                         ToolTip="{x:Static local:Loc.ToggleAttention}" Visibility="Collapsed"/>
                             </StackPanel>
@@ -210,8 +210,8 @@
             <Grid Grid.Row="7" Margin="14,10,0,0">
                 <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                 <TextBlock x:Name="FeedbackText" Text="{x:Static local:Loc.KeyHints}"
-                           Foreground="#A29E95" FontSize="13" VerticalAlignment="Center"/>
-                <TextBlock Grid.Column="1" x:Name="HotkeyHint" Text="Alt + Q" Foreground="#A29E95" FontSize="13"/>
+                           Foreground="#8593AE" FontSize="13" VerticalAlignment="Center"/>
+                <TextBlock Grid.Column="1" x:Name="HotkeyHint" Text="Alt + Q" Foreground="#8593AE" FontSize="13"/>
             </Grid>
         </Grid>
     </Border>

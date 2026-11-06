@@ -22,7 +22,7 @@ public sealed class AppSettings
     public bool GroupByTool { get; set; } = true;
     /// <summary>UI language: "auto" (follow Windows), "zh" or "en". Applied at startup.</summary>
     public string Language { get; set; } = "auto";
-    /// <summary>Widget position in DIPs; null = default (top-right of the primary screen).</summary>
+    /// <summary>Widget position in DIPs; null = default (bottom-right of the primary screen).</summary>
     public double? WidgetLeft { get; set; }
     public double? WidgetTop { get; set; }
 

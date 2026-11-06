@@ -22,11 +22,11 @@ public partial class App : System.Windows.Application
             Loc.Init(Demo.Language ?? "auto");
             _window = new MainWindow();
             _window.InitializeInvisible();
-            if (Demo.View == "widget")
+            if (Demo.View is "widget" or "badge" or "idle" or "running")
             {
                 _widget = new FloatingWidget(_window);
                 _widget.Show();
-                _widget.ShowExpanded();
+                if (Demo.View == "widget") _widget.ShowExpanded();
             }
             else _window.ShowPanel();
             return;
@@ -66,7 +66,7 @@ public partial class App : System.Windows.Application
         menu.Items.Add(Loc.T("退出", "Exit"), null, (_, _) => Dispatcher.Invoke(Shutdown));
         _tray = new WinForms.NotifyIcon
         {
-            Icon = System.Drawing.SystemIcons.Application,
+            Icon = new System.Drawing.Icon(typeof(App).Assembly.GetManifestResourceStream("AiFocus.ico")!, WinForms.SystemInformation.SmallIconSize),
             ContextMenuStrip = menu,
             Visible = true
         };

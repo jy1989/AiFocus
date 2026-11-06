@@ -735,9 +735,9 @@ public partial class MainWindow : Window
         foreach (var b in new[] { AllButton, AttentionButton, FavoriteButton })
         {
             bool selected = (string)b.Tag == _filterMode;
-            // Calm palette: the active filter is a quiet dark chip, the rest stay neutral.
-            b.Background = selected ? new SolidColorBrush(Color.FromRgb(0x3A, 0x40, 0x48)) : Brushes.Transparent;
-            b.Foreground = selected ? new SolidColorBrush(Color.FromRgb(0xF4, 0xF3, 0xEF)) : new SolidColorBrush(Color.FromRgb(0x6B, 0x70, 0x78));
+            // The active filter takes the brand blue, the rest stay neutral.
+            b.Background = selected ? new SolidColorBrush(Color.FromRgb(0x1B, 0x45, 0xAC)) : Brushes.Transparent;
+            b.Foreground = selected ? new SolidColorBrush(Color.FromRgb(0xFF, 0xFF, 0xFF)) : new SolidColorBrush(Color.FromRgb(0x4F, 0x5F, 0x80));
         }
     }
     private void Filter_Click(object sender, RoutedEventArgs e)

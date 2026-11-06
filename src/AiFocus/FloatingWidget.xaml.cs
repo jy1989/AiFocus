@@ -4,44 +4,70 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
+using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using MouseEventArgs = System.Windows.Input.MouseEventArgs;
 using Point = System.Windows.Point;
 using Color = System.Windows.Media.Color;
 using ColorConverter = System.Windows.Media.ColorConverter;
+using WinForms = System.Windows.Forms;
 
 namespace AiFocus;
 
 /// <summary>
-/// Always-on-top capsule showing whether any AI is waiting for the user. Never takes focus,
-/// so glancing at or clicking it does not disturb the window being worked in.
+/// Always-on-top badge showing whether any AI is waiting for the user. Never takes focus, and stays
+/// a small dot and count until the mouse rests on it, so it does not cover the window being worked in.
 /// </summary>
 public partial class FloatingWidget : Window
 {
     [DllImport("user32.dll")] private static extern int GetWindowLong(IntPtr hwnd, int index);
     [DllImport("user32.dll")] private static extern int SetWindowLong(IntPtr hwnd, int index, int value);
     [DllImport("dwmapi.dll")] private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int value, int size);
-    private const int GwlExStyle = -20, WsExToolWindow = 0x80, WsExNoActivate = 0x08000000;
+    private const int GwlStyle = -16, GwlExStyle = -20, WsExToolWindow = 0x80, WsExNoActivate = 0x08000000;
+    private const int WsPopup = unchecked((int)0x80000000);
     private const int DwmwaWindowCornerPreference = 33, DwmwcpRound = 2;
 
     private readonly MainWindow _main;
     private readonly DispatcherTimer _collapseTimer = new() { Interval = TimeSpan.FromMilliseconds(450) };
+    /// <summary>Passing over the badge must not open it: the mouse has to rest here first.</summary>
+    private readonly DispatcherTimer _expandTimer = new() { Interval = TimeSpan.FromMilliseconds(350) };
     private bool _hovering;
+    private bool _expanded;
+    /// <summary>Edges that stay put while the size changes, so the widget always grows into the screen.</summary>
+    private double? _rightEdge, _bottomEdge;
+    private bool _anchored, _placeAtDefault;
+    private System.Windows.Size _compactSize;
 
     public FloatingWidget(MainWindow main)
     {
         InitializeComponent();
         _main = main;
         _main.SessionsRefreshed += Refresh;
-        _collapseTimer.Tick += (_, _) => { _collapseTimer.Stop(); if (!_hovering) ActiveList.Visibility = Visibility.Collapsed; };
+        _collapseTimer.Tick += (_, _) => { _collapseTimer.Stop(); if (!_hovering) SetExpanded(false); };
+        _expandTimer.Tick += (_, _) => { _expandTimer.Stop(); if (_hovering) SetExpanded(true); };
+        SizeChanged += Window_SizeChanged;
+        // The first layout ran before the popup style applied, while the wider minimum still held.
+        // A real content size change makes WPF size the window again.
+        ContentRendered += (_, _) =>
+        {
+            var height = Capsule.Height;
+            Capsule.Height = height + 1;
+            UpdateLayout();
+            Capsule.Height = height;
+        };
         SourceInitialized += (_, _) =>
         {
             var handle = new WindowInteropHelper(this).Handle;
+            // Popup: Windows keeps overlapped windows at least ~136 px wide, far wider than the badge.
+            SetWindowLong(handle, GwlStyle, GetWindowLong(handle, GwlStyle) | WsPopup);
             // Tool window: not in Alt+Tab / taskbar. No-activate: clicks never steal focus.
             SetWindowLong(handle, GwlExStyle, GetWindowLong(handle, GwlExStyle) | WsExToolWindow | WsExNoActivate);
             int corner = DwmwcpRound;
             DwmSetWindowAttribute(handle, DwmwaWindowCornerPreference, ref corner, sizeof(int));
         };
+        using (var icon = typeof(App).Assembly.GetManifestResourceStream("AiFocus.ico")!)
+            AppIcon.Source = new IconBitmapDecoder(icon, BitmapCreateOptions.None, BitmapCacheOption.OnLoad)
+                .Frames.OrderBy(f => f.PixelWidth).First(f => f.PixelWidth >= 48);
         PlaceInitially();
         Refresh();
     }
@@ -49,19 +75,60 @@ public partial class FloatingWidget : Window
     private void PlaceInitially()
     {
         var area = SystemParameters.WorkArea;
-        double left = _main.Settings.WidgetLeft ?? area.Right - Width - 24;
-        double top = _main.Settings.WidgetTop ?? area.Top + 24;
+        double left = _main.Settings.WidgetLeft ?? area.Right;
+        double top = _main.Settings.WidgetTop ?? area.Bottom;
+        _placeAtDefault = _main.Settings.WidgetLeft == null || _main.Settings.WidgetTop == null;
         // A saved position may belong to a monitor that is no longer attached.
         var virtualRight = SystemParameters.VirtualScreenLeft + SystemParameters.VirtualScreenWidth;
         var virtualBottom = SystemParameters.VirtualScreenTop + SystemParameters.VirtualScreenHeight;
         if (left < SystemParameters.VirtualScreenLeft || left > virtualRight - 60 ||
             top < SystemParameters.VirtualScreenTop || top > virtualBottom - 40)
         {
-            left = area.Right - Width - 24;
-            top = area.Top + 24;
+            _placeAtDefault = true;
         }
         Left = left;
         Top = top;
+    }
+
+    private const double DefaultMargin = 24;
+
+    private void Window_SizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        if (!_expanded) _compactSize = e.NewSize;
+        if (!_anchored)
+        {
+            // The default corner is only known once the badge has its real size.
+            if (_placeAtDefault)
+            {
+                var area = SystemParameters.WorkArea;
+                Left = area.Right - DefaultMargin - e.NewSize.Width;
+                Top = area.Bottom - DefaultMargin - e.NewSize.Height;
+            }
+            _anchored = true;
+            UpdateAnchor();
+            return;
+        }
+        if (_rightEdge is { } right) Left = right - e.NewSize.Width;
+        if (_bottomEdge is { } bottom) Top = bottom - e.NewSize.Height;
+    }
+
+    /// <summary>Anchors to the nearer screen edges, so the list opens towards the middle of the screen.</summary>
+    private void UpdateAnchor()
+    {
+        var screen = WinForms.Screen.FromHandle(new WindowInteropHelper(this).Handle).WorkingArea;
+        var dpi = VisualTreeHelper.GetDpi(this);
+        bool right = (Left + ActualWidth / 2) * dpi.DpiScaleX > screen.Left + screen.Width / 2;
+        bool bottom = (Top + ActualHeight / 2) * dpi.DpiScaleY > screen.Top + screen.Height / 2;
+        _rightEdge = right ? Left + ActualWidth : null;
+        _bottomEdge = bottom ? Top + ActualHeight : null;
+    }
+
+    private void SetExpanded(bool expanded)
+    {
+        _expanded = expanded;
+        Summary.Visibility = expanded ? Visibility.Visible : Visibility.Collapsed;
+        CountText.Visibility = !expanded && CountText.Text.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
+        ActiveList.Visibility = expanded && ActiveList.Items.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
     }
 
     public void Refresh()
@@ -84,15 +151,29 @@ public partial class FloatingWidget : Window
             .Where(t => t != default).DefaultIfEmpty(DateTime.UtcNow).Min();
         var waitedFor = DateTime.UtcNow - oldest;
         int level = waitedFor >= LongWait ? 2 : waitedFor >= Wait ? 1 : 0;
-        StatusDot.Fill = Brush(waiting.Count > 0 ? (level == 2 ? "#3E7D57" : "#6FA582")
-            : stalled.Count > 0 ? (level == 2 ? "#B8562A" : "#D98A5F")
-            : pending.Count > 0 ? "#D9A44A" : running.Count > 0 ? "#8FA6C4" : "#C2BEB5");
+        StatusDot.Fill = Brush(waiting.Count > 0 ? (level == 2 ? "#0B8A84" : "#18B5AD")
+            : stalled.Count > 0 ? (level == 2 ? "#C8501C" : "#F0803C")
+            : pending.Count > 0 ? "#E6A92E" : running.Count > 0 ? "#3B82F6" : "#A9B6CE");
         SetEscalation(level);
 
         var active = waiting.Concat(stalled).Concat(pending).Concat(running).ToList();
         ActiveList.ItemsSource = active;
-        ExpandHint.Visibility = active.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
-        if (active.Count == 0) ActiveList.Visibility = Visibility.Collapsed;
+        int needYou = waiting.Count + stalled.Count + pending.Count;
+        CountText.Text = needYou > 0 ? needYou.ToString() : "";
+        ShowIdleIcon(needYou == 0, running.Count > 0);
+        SetExpanded(_expanded);
+    }
+
+    /// <summary>Nothing needs the user: the app icon replaces the dot, which shrinks to a corner mark while AIs run.</summary>
+    private void ShowIdleIcon(bool idle, bool running)
+    {
+        AppIcon.Visibility = idle ? Visibility.Visible : Visibility.Collapsed;
+        StatusDot.Visibility = !idle || running ? Visibility.Visible : Visibility.Collapsed;
+        StatusDot.HorizontalAlignment = idle ? System.Windows.HorizontalAlignment.Right : System.Windows.HorizontalAlignment.Center;
+        StatusDot.VerticalAlignment = idle ? VerticalAlignment.Bottom : VerticalAlignment.Center;
+        StatusDot.Margin = idle ? new Thickness(0, 0, 4, 4) : new Thickness(0);
+        StatusDot.Stroke = idle ? (System.Windows.Media.Brush)FindResource("Paper") : null;
+        StatusDot.StrokeThickness = idle ? 1.5 : 0;
     }
 
     private const int MaxIconsPerGroup = 2;
@@ -125,7 +206,7 @@ public partial class FloatingWidget : Window
     {
         if (group.Count == 0) return;
         if (Summary.Children.Count > 0)
-            Summary.Children.Add(new TextBlock { Text = " · ", FontSize = 14, Foreground = Brush("#C2BEB5"), VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(4, 0, 4, 0) });
+            Summary.Children.Add(new TextBlock { Text = " · ", FontSize = 14, Foreground = Brush("#A9B6CE"), VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(4, 0, 4, 0) });
         Summary.Children.Add(new TextBlock { Text = group.Count + " " + label, FontSize = 14, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 4, 0) });
         foreach (var s in group.Take(MaxIconsPerGroup))
         {
@@ -137,7 +218,7 @@ public partial class FloatingWidget : Window
             });
         }
         if (group.Count > MaxIconsPerGroup)
-            Summary.Children.Add(new TextBlock { Text = "+" + (group.Count - MaxIconsPerGroup), FontSize = 12, Foreground = Brush("#8A8780"), VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(2, 0, 0, 0) });
+            Summary.Children.Add(new TextBlock { Text = "+" + (group.Count - MaxIconsPerGroup), FontSize = 12, Foreground = Brush("#64728F"), VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(2, 0, 0, 0) });
     }
 
     private static SolidColorBrush Brush(string hex) => new((Color)ColorConverter.ConvertFromString(hex));
@@ -146,19 +227,20 @@ public partial class FloatingWidget : Window
     public void ShowExpanded()
     {
         Refresh();
-        if (ActiveList.Items.Count > 0) ActiveList.Visibility = Visibility.Visible;
+        SetExpanded(true);
     }
 
     private void Window_MouseEnter(object sender, MouseEventArgs e)
     {
         _hovering = true;
         _collapseTimer.Stop();
-        if (ActiveList.Items.Count > 0) ActiveList.Visibility = Visibility.Visible;
+        if (!_expanded) _expandTimer.Start();
     }
 
     private void Window_MouseLeave(object sender, MouseEventArgs e)
     {
         _hovering = false;
+        _expandTimer.Stop();
         _collapseTimer.Start();
     }
 
@@ -183,8 +265,10 @@ public partial class FloatingWidget : Window
         _pressedAt = null;
         Capsule.ReleaseMouseCapture();
         DragMove();
-        _main.Settings.WidgetLeft = Left;
-        _main.Settings.WidgetTop = Top;
+        UpdateAnchor();
+        // Saved as the compact badge's position, whatever size the widget has right now.
+        _main.Settings.WidgetLeft = _rightEdge is { } right ? right - _compactSize.Width : Left;
+        _main.Settings.WidgetTop = _bottomEdge is { } bottom ? bottom - _compactSize.Height : Top;
         _main.Settings.Save();
     }
 
@@ -200,7 +284,7 @@ public partial class FloatingWidget : Window
     {
         if (((FrameworkElement)sender).DataContext is SessionEntry s)
         {
-            ActiveList.Visibility = Visibility.Collapsed;
+            SetExpanded(false);
             _ = _main.ActivateFromNotificationAsync(s);
         }
     }

@@ -15,7 +15,7 @@ It does not replace any AI tool and never proxies model requests. Everything is 
 ## Features
 
 **See at a glance who needs you**
-- **Floating widget**: a small capsule on the edge of the screen, e.g. "● 2 replied [icons] · 1 running [icons]". Hover to list the sessions waiting for you, with how long they have waited and a one-line brief of the AI's last reply; click to go there. After 10 minutes of waiting the dot starts to breathe slowly; after 30 minutes it turns deeper.
+- **Floating widget**: by default in the bottom-right corner, it is just a status dot and the number of sessions waiting for you, so it stays out of your way; drag it anywhere. Rest the mouse on it to list those sessions, with how long they have waited and a one-line brief of the AI's last reply; click to go there. After 10 minutes of waiting the dot starts to breathe slowly; after 30 minutes it turns deeper.
 - **Automatic states**: when a session stops running it becomes **Replied** and a Windows notification appears; clicking it takes you straight there. A Claude Code session sitting on an unfinished tool call is flagged **Needs you?** (usually a permission prompt); no progress for a few minutes is flagged **Stuck?**.
 
 <p align="center"><img src="docs/images/widget-en.png" alt="Floating widget, expanded" width="380"></p>
@@ -110,7 +110,7 @@ That's it. The extension has a fixed ID, so AI Focus registers the browser bridg
 - `extension` — Chrome / Edge extension (Manifest V3).
 - `scripts` — build and run; `register-native-host.ps1` registers the bridge by hand (rarely needed: AI Focus does it at startup).
 - `tests/AiFocus.Probe` — command-line probe (lists detected windows, Claude Code sessions…).
-- `docs/images` — README screenshots, produced by demo mode: `AiFocus.exe --demo --view=list|widget --lang=zh|en`. Demo mode uses made-up sessions, reads no real windows or transcripts, registers no hotkeys, and can run next to a running AI Focus.
+- `docs/images` — README screenshots, produced by demo mode: `AiFocus.exe --demo --view=list|widget|badge|idle|running --lang=zh|en`. Demo mode uses made-up sessions, reads no real windows or transcripts, registers no hotkeys, and can run next to a running AI Focus.
 
 ## Known limitations
 

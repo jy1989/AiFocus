@@ -46,7 +46,7 @@ public sealed class SessionEntry : INotifyPropertyChanged
     public int TerminalTabIndex { get; set; }
     /// <summary>Real app icon or favicon; null falls back to the Icon glyph.</summary>
     public System.Windows.Media.ImageSource? IconImage { get; set; }
-    public System.Windows.Media.Brush IconBrush => Provider is "Claude" or "Claude Code" ? ColorBrush("#D97757") : ColorBrush("#8C8880");
+    public System.Windows.Media.Brush IconBrush => Provider is "Claude" or "Claude Code" ? ColorBrush("#D97757") : ColorBrush("#7C8AA6");
     public string DisplayTitle => string.IsNullOrWhiteSpace(CustomTitle) ? OriginalTitle : CustomTitle;
     public string ProjectLabel => string.IsNullOrWhiteSpace(Workspace) ? Project : Workspace;
     public string Subtitle => string.Join("  ·  ", new[] { ProjectLabel, Provider, SourceName }.Where(s => !string.IsNullOrWhiteSpace(s)));
@@ -126,25 +126,25 @@ public sealed class SessionEntry : INotifyPropertyChanged
     // Muted tones: only states that concern the user carry colour, everything else stays neutral.
     public System.Windows.Media.Brush StateBackground => StateKey switch
     {
-        "todo" => ColorBrush("#F6EAD3"),
-        "replied" => ColorBrush("#E1EEE5"),
-        "approval" or "stuck" => ColorBrush("#F7E4D8"),
-        "running" => ColorBrush("#E3E9F1"),
-        _ => ColorBrush("#EAE8E2")
+        "todo" => ColorBrush("#FCF0D2"),
+        "replied" => ColorBrush("#D8F5F3"),
+        "approval" or "stuck" => ColorBrush("#FDE8DC"),
+        "running" => ColorBrush("#DCE9FE"),
+        _ => ColorBrush("#E6ECF7")
     };
     public System.Windows.Media.Brush StateForeground => StateKey switch
     {
         "todo" => ColorBrush("#8A5A12"),
-        "replied" => ColorBrush("#2F6B4A"),
-        "approval" or "stuck" => ColorBrush("#9A4A1C"),
-        "running" => ColorBrush("#3E5F86"),
-        _ => ColorBrush("#7A7F87")
+        "replied" => ColorBrush("#0B6E6B"),
+        "approval" or "stuck" => ColorBrush("#A8431A"),
+        "running" => ColorBrush("#1B45AC"),
+        _ => ColorBrush("#64728F")
     };
     /// <summary>Colour strip at the row's left edge; transparent unless the session needs the user.</summary>
-    public System.Windows.Media.Brush AccentBrush => NeedsAttention ? ColorBrush("#D9A44A")
-        : Completed ? ColorBrush("#7FB08F")
-        : Stall.Length > 0 ? ColorBrush("#D98A5F")
-        : Activity == "running" ? ColorBrush("#8FA6C4")
+    public System.Windows.Media.Brush AccentBrush => NeedsAttention ? ColorBrush("#E6A92E")
+        : Completed ? ColorBrush("#18B5AD")
+        : Stall.Length > 0 ? ColorBrush("#F0803C")
+        : Activity == "running" ? ColorBrush("#3B82F6")
         : System.Windows.Media.Brushes.Transparent;
     public string FavoriteSymbol => Favorite ? "★" : "☆";
     /// <summary>Short status for the floating widget, e.g. "等了 12 分钟".</summary>

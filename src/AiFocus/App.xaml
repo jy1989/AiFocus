@@ -3,11 +3,11 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              ShutdownMode="OnExplicitShutdown">
     <Application.Resources>
-        <!-- Calm, low-contrast-but-readable palette shared by the panel. -->
-        <SolidColorBrush x:Key="Paper" Color="#F4F3EF"/>
-        <SolidColorBrush x:Key="Ink" Color="#2E3238"/>
-        <SolidColorBrush x:Key="InkSoft" Color="#555A62"/>
-        <SolidColorBrush x:Key="InkMuted" Color="#8A8780"/>
+        <!-- Calm palette shared by the panel, taken from the app icon's blues. -->
+        <SolidColorBrush x:Key="Paper" Color="#F2F6FD"/>
+        <SolidColorBrush x:Key="Ink" Color="#0F1E45"/>
+        <SolidColorBrush x:Key="InkSoft" Color="#40506F"/>
+        <SolidColorBrush x:Key="InkMuted" Color="#64728F"/>
         <!-- Session icon shared by the panel and the floating widget: real app icon / favicon,
              falling back to a glyph (orange ✳ for Claude). -->
         <DataTemplate x:Key="SessionIcon">

@@ -4,7 +4,7 @@ namespace AiFocus;
 /// "--demo": a self-contained instance filled with made-up sessions, for README screenshots.
 /// It reads no real windows or transcripts, registers no hotkeys, has no tray icon and keeps its
 /// data in a separate folder, so it can run next to the real AI Focus.
-/// Options: --view=list|widget, --lang=zh|en.
+/// Options: --view=list|widget|badge|idle|running, --lang=zh|en (idle and running show the badge with no waiting sessions).
 /// </summary>
 public static class Demo
 {
@@ -85,6 +85,11 @@ public static class Demo
                    "| | Free tier | Collaboration |\n|---|---|---|\n| A | 3 projects | Real-time |\n| B | Unlimited | Comments |\n| C | 1 project | Real-time + comments |"),
             s => { s.LastFocusedUtc = now.AddHours(-2); });
 
-        return list;
+        return View switch
+        {
+            "idle" => new List<SessionEntry>(),
+            "running" => list.FindAll(s => s.Activity == "running" && s.Stall.Length == 0),
+            _ => list
+        };
     }
 }

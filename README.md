@@ -15,7 +15,7 @@ AI Focus 是一个跨软件的 AI 控制台：在同一面板里发现这些 AI 
 ## 功能
 
 **一眼知道谁在等你**
-- **悬浮窗**：屏幕边上一个小胶囊，例如「● 2 待回复 [图标] · 1 运行中 [图标]」。悬停展开等你的会话，带"等了 12 分钟"和 AI 最后回复的一句话简报，点一下直达。等待超过 10 分钟，状态点开始缓慢呼吸；超过 30 分钟颜色加深。
+- **悬浮窗**：默认在屏幕右下角，平时只是一个状态点和等你的会话数，不挡操作，可以拖到任意位置。鼠标停留片刻后展开，显示等你的会话，带"等了 12 分钟"和 AI 最后回复的一句话简报，点一下直达。等待超过 10 分钟，状态点开始缓慢呼吸；超过 30 分钟颜色加深。
 - **自动状态**：会话从"运行中"变成停下时自动标为 **待回复**，并弹出 Windows 通知，点击通知直接跳转。Claude Code 长时间停在一个还没结果的工具调用上，会标为 **等你确认?**（多半在等你批准权限）；几分钟没有任何进展，标为 **可能卡住**。
 
 <p align="center"><img src="docs/images/widget-zh.png" alt="悬浮窗展开" width="380"></p>
@@ -110,7 +110,7 @@ dotnet build AiFocus.sln -c Debug
 - `extension`：Chrome / Edge 扩展（Manifest V3）。
 - `scripts`：构建、运行；`register-native-host.ps1` 可手动注册桥接（一般不需要，AI Focus 启动时会自动注册）。
 - `tests/AiFocus.Probe`：命令行探测工具（列出识别到的窗口、Claude Code 会话等）。
-- `docs/images`：README 截图，由演示模式生成：`AiFocus.exe --demo --view=list|widget --lang=zh|en`。演示模式使用虚构的会话，不读取真实窗口和会话记录，不注册快捷键，可以和正在运行的 AI Focus 同时打开。
+- `docs/images`：README 截图，由演示模式生成：`AiFocus.exe --demo --view=list|widget|badge|idle|running --lang=zh|en`。演示模式使用虚构的会话，不读取真实窗口和会话记录，不注册快捷键，可以和正在运行的 AI Focus 同时打开。
 
 ## 已知限制
 
