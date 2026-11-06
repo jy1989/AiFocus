@@ -2,9 +2,11 @@
 
 English | [中文](README.md)
 
-**A focus panel for people who run many AIs at once (Windows).**
+**One console for all the AIs scattered across your CLIs, desktop apps and browsers.**
 
-ChatGPT, Claude and Muse in the browser, several Claude Code tabs in Windows Terminal, the Codex desktop app… With that many windows it is hard to tell which AI has finished, which one is waiting for your approval, and which has been idle for half an hour. AI Focus brings them into one place — **who is running, who is waiting for you, for how long, and what they just did** — and takes you there in one keystroke.
+AI Focus is a cross-app AI console: it finds these AI entry points and brings them into one panel, so you can see **who is running, who is waiting for you, for how long, and what they just did**, then takes you there in one keystroke. Windows only for now.
+
+ChatGPT, Claude and Muse in the browser, several Claude Code tabs in Windows Terminal, the Codex desktop app… With that many windows it is hard to tell which AI has finished, which one is waiting for your approval, and which has been idle for half an hour.
 
 It does not replace any AI tool and never proxies model requests. Everything is read locally: no network, no API keys.
 
