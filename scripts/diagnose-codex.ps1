@@ -17,7 +17,7 @@ public class WindowProbe {
     string proc="?"; try{proc=Process.GetProcessById((int)pid).ProcessName;}catch {}
     var title=text.ToString();
     if(proc.ToLowerInvariant().Contains("codex") || title.ToLowerInvariant().Contains("codex") ||
-       proc.ToLowerInvariant().Contains("openai") || proc.ToLowerInvariant().Contains("chatgpt") || title.ToLowerInvariant().Contains("ai cockpit"))
+       proc.ToLowerInvariant().Contains("openai") || proc.ToLowerInvariant().Contains("chatgpt") || title.ToLowerInvariant().Contains("ai focus"))
       sb.AppendLine("hw="+hw+" pid="+pid+" process="+proc+" visible="+IsWindowVisible(hw)+" len="+len+" title="+title);
     return true;
    },IntPtr.Zero);

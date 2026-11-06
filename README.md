@@ -1,4 +1,4 @@
-# AI Cockpit
+# AI Focus
 
 Windows 本地 AI 会话控制台（MVP 0.1）。
 
@@ -8,12 +8,18 @@ Windows 本地 AI 会话控制台（MVP 0.1）。
 
 - 默认 **Alt + Q** 呼出/隐藏控制台；**Alt + W “送过去”**：直接跳到等你最久的会话（先待回复，再“等你确认?”），不用打开面板。两个快捷键都可在面板右上角 ⚙ 或托盘“设置…”中修改。
 - **悬浮窗**：置顶的小胶囊，一个状态点加一句话（绿 = 有 AI 等你回复，琥珀 = 手动待处理，蓝 = 都在运行，灰 = 都很安静）。鼠标悬停展开待回复和运行中的会话（显示“等了 N 分钟”），点击直接跳转；单击胶囊打开面板，拖动移动并记住位置，右键可隐藏。不抢焦点、不进 Alt+Tab，可在设置或托盘菜单中开关。
+- **送回来**：Alt + E 回到你被“送过去”之前自己在用的窗口；在 AI 之间连续跳转时，返回目标保持为最初的工作窗口。
+- **等久了逐渐提醒**：最久的待回复/卡住超过 10 分钟，胶囊的点开始缓慢呼吸；超过 30 分钟颜色加深、点变大、呼吸变快。无声音、无弹窗。
+- **开机自动启动**：设置中开关（写入当前用户的启动项，无需管理员权限）。
 - 卡片和悬浮窗显示真实图标：应用取窗口/程序图标，网页取浏览器 favicon（扩展 v0.3+）；终端里的 Claude Code 显示橙色 ✳。
 - 检测常见 AI 桌面应用、编辑器（VS Code / Cursor / Windsurf / Trae 等）、终端，以及标题匹配的浏览器窗口；按 Claude / Codex / 浏览器 · 网页 AI / 编辑器 / AI 桌面应用 / 其他 AI 终端 分组显示。
 - 识别 Claude Code 终端会话：根据终端标题前缀判断“运行中 / 空闲”。Windows Terminal 通过 UI Automation 读取**每个标签页**，后台标签里的会话也能识别，点击会切到对应标签页。自动过滤“主机弹出窗口”等辅助窗口。
 - **显示所在目录**：Claude Code 按终端标题对应到 `~/.claude/projects` 中的会话，Codex 读取会话记录里的 `cwd`；卡片和悬浮窗显示文件夹名，悬停显示完整路径和 AI 最后一条回复。
 - **卡住检测**：Claude Code 显示运行中、但会话记录里最后一步是还没结果的工具调用且超过 90 秒，标为“等你确认?”（多半在等你批准权限）；超过 3 分钟没有任何进展标为“可能卡住”（Codex 同样适用）。会排到运行中之前、弹一次通知，Alt + W 也会跳到它们。长时间运行的命令也可能触发，所以文案带问号。
 - **一句话简报**：取 AI 最后一条回复的第一句有内容的话（去掉 Markdown，标题后优先取正文），显示在悬浮窗待回复/卡住的行和面板卡片上，不切窗口就知道它做完了什么。
+- **看对话模式**：面板里按 Tab（或点“看对话”）切换，左边是会话列表，右边显示选中会话最近几轮对话（你和 AI 的消息，最多 8 条），自动刷新；Enter 跳过去处理。Claude Code 和 Codex 读取本地会话记录（滤掉工具调用、命令输出和注入的上下文）；网页版由扩展从页面读取，目前支持 ChatGPT、Claude、Gemini（扩展 v0.4+）。
+- **控制台模式**：点“控制台”后面板铺满屏幕，所有会话一屏显示为大卡片（最多 9 个，按需要你 → 运行中 → 其余排序）。会话正好是所在窗口当前显示的内容时，显示实时窗口画面（DWM 缩略图，和 Alt+Tab 同一机制）；在后台标签或窗口最小化时，显示最近几条对话。单击卡片切换过去。
+- 面板不再因为点击外面而关闭，点 ✕、按 Esc 或跳转到会话时关闭；面板不在前台时按 Alt + Q 会把它调到前面。
 - 按标题、提供者和项目名搜索；Enter 或双击切换到原窗口。
 - 手动标记待处理、收藏、重命名、按项目分组；本地 JSON 持久化。
 - Chrome / Edge 可选 MV3 扩展：将常用 AI 网站（ChatGPT、Claude、Gemini、Perplexity、DeepSeek、Kimi、豆包、通义千问、文心一言、腾讯元宝、智谱清言、Grok、Copilot 等 40+ 站点）的标签分别列出，并定位到对应原标签。识别规则见 `extension/background.js` 的 `AI_SITES`。
@@ -27,17 +33,17 @@ Windows 本地 AI 会话控制台（MVP 0.1）。
 
 ```powershell
 cd D:\git-project\ai-cockpit
-dotnet build AiCockpit.sln -c Debug
-.\src\AiCockpit\bin\Debug\net9.0-windows10.0.17763.0\AiCockpit.exe
+dotnet build AiFocus.sln -c Debug
+.\src\AiFocus\bin\Debug\net9.0-windows10.0.17763.0\AiFocus.exe
 ```
 
-也可以双击项目根目录的 `启动 AI Cockpit.bat`。主程序默认驻留系统托盘，按 **Alt + Q**（可在设置中修改）唤出。退出时右键托盘图标选择“退出”。
+也可以双击项目根目录的 `启动 AI Focus.bat`。主程序默认驻留系统托盘，按 **Alt + Q**（可在设置中修改）唤出。退出时右键托盘图标选择“退出”。
 
 ## 二、可选：开启浏览器标签级管理
 
 不用扩展时，浏览器最多被识别为单个窗口；不能保证自动列出它内部的每个对话。
 
-1. 启动 AI Cockpit。
+1. 启动 AI Focus。
 2. Chrome 打开 `chrome://extensions`，或 Edge 打开 `edge://extensions`。
 3. 打开“开发者模式”，选择“加载已解压的扩展程序”，目录选择 `D:\git-project\ai-cockpit\extension`。
 4. 复制浏览器扩展详情页中的 **32 字符扩展 ID**。
@@ -48,7 +54,7 @@ dotnet build AiCockpit.sln -c Debug
 # Edge 浏览器则改成 -Browser Edge
 ```
 
-6. 在扩展管理页点击“重新加载”该扩展。刷新 AI Cockpit 面板后，即可看到网页版会话。
+6. 在扩展管理页点击“重新加载”该扩展。刷新 AI Focus 面板后，即可看到网页版会话。
 
 上述注册脚本只写入当前用户的 Chrome/Edge Native Messaging Host 注册项，不需要管理员权限。要同时支持 Chrome 和 Edge，分别加载扩展并使用各自扩展 ID 执行两次注册。
 
@@ -58,6 +64,7 @@ dotnet build AiCockpit.sln -c Debug
 
 - `Alt + Q`（默认，可在设置中修改）：显示或隐藏
 - `Alt + W`（默认）：送过去，跳到下一个等你的会话
+- `Alt + E`（默认）：送回来，回到送过去之前你自己在用的窗口（连续送过去多次也会回到最初那个窗口）
 - `Esc`：隐藏并尝试恢复前一个窗口
 - `↑/↓ + Enter`：选择会话并跳转
 - 双击一行：切换到原窗口/标签页
@@ -72,14 +79,14 @@ dotnet build AiCockpit.sln -c Debug
 
 用户备注、待处理状态和 Codex 会话的已读时间保存在（设置保存在同目录 `settings.json`）：
 
-`%LOCALAPPDATA%\AiCockpit\sessions.json`
+`%LOCALAPPDATA%\AiFocus\sessions.json`
 
 窗口句柄/PID 和浏览器 tabId 仅用于当前运行时定位，不作为跨启动的持久唯一身份。窗口改名、多个窗口重名等情况下，手动备注关联可能失效或共享，这是 MVP 的已知限制。
 
 ## 五、技术架构
 
-- `src/AiCockpit`：.NET 9 WPF 原生控制台、Win32 窗口发现、会话状态与本地 JSON。
-- `src/AiCockpit.Bridge`：Chrome/Edge Native Messaging stdio 协议与 Windows Named Pipe 转发。
+- `src/AiFocus`：.NET 9 WPF 原生控制台、Win32 窗口发现、会话状态与本地 JSON。
+- `src/AiFocus.Bridge`：Chrome/Edge Native Messaging stdio 协议与 Windows Named Pipe 转发。
 - `extension`：Manifest V3 浏览器扩展。
 - `scripts`：构建、运行、按浏览器注册原生消息桥接。
 
@@ -97,4 +104,4 @@ dotnet build AiCockpit.sln -c Debug
 
 ## 隐私与退出
 
-不需要登录 AI Cockpit，不使用外网服务。退出主程序后不会关闭任何已打开的 AI 网页/终端。要停止扩展连接，可以在浏览器的扩展管理页禁用该扩展；要删除原生消息注册，可删除当前用户注册表对应项。
+不需要登录 AI Focus，不使用外网服务。退出主程序后不会关闭任何已打开的 AI 网页/终端。要停止扩展连接，可以在浏览器的扩展管理页禁用该扩展；要删除原生消息注册，可删除当前用户注册表对应项。

@@ -1,13 +1,14 @@
-<Window x:Class="AiCockpit.MainWindow"
+<Window x:Class="AiFocus.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="AI Cockpit" Width="1080" Height="680" MinWidth="560" MinHeight="400"
+        xmlns:local="clr-namespace:AiFocus"
+        Title="AI Focus" Width="1080" Height="680" MinWidth="560" MinHeight="400"
         WindowStyle="None" ResizeMode="CanResize" Background="{StaticResource Paper}"
-        ShowInTaskbar="False" Topmost="True"
+        ShowInTaskbar="False" Topmost="False"
         FontFamily="Microsoft YaHei UI, Segoe UI" FontSize="15" Foreground="{StaticResource Ink}"
         UseLayoutRounding="True" SnapsToDevicePixels="True"
         TextOptions.TextFormattingMode="Display" TextOptions.TextRenderingMode="ClearType"
-        Deactivated="Window_Deactivated" PreviewKeyDown="Window_PreviewKeyDown">
+        PreviewKeyDown="Window_PreviewKeyDown">
     <!-- No AllowsTransparency / DropShadowEffect: both force grayscale, bitmap-scaled (blurry) text.
          WindowChrome removes the frame; rounded corners and shadow come from DWM.
          Visual direction: a calm, low-stimulus focus tool. Warm paper background, borderless rows,
@@ -17,6 +18,7 @@
                       CornerRadius="0" UseAeroCaptionButtons="False"/>
     </WindowChrome.WindowChrome>
     <Window.Resources>
+        <local:MarkdownConverter x:Key="Markdown"/>
         <Style x:Key="FlatButton" TargetType="Button">
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="Foreground" Value="{StaticResource InkSoft}"/>
@@ -60,7 +62,7 @@
             <Grid Grid.Row="0" Background="Transparent" MouseLeftButtonDown="Header_MouseLeftButtonDown">
                 <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                    <TextBlock Text="AI Cockpit" FontSize="20" FontWeight="SemiBold" Foreground="{StaticResource Ink}" VerticalAlignment="Center"/>
+                    <TextBlock Text="AI Focus" FontSize="20" FontWeight="SemiBold" Foreground="{StaticResource Ink}" VerticalAlignment="Center"/>
                     <TextBlock x:Name="CountsText" Foreground="{StaticResource InkMuted}" FontSize="14" VerticalAlignment="Center" Margin="14,2,0,0"/>
                 </StackPanel>
                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
@@ -92,15 +94,27 @@
                     </Grid>
                 </DockPanel>
             </Border>
-            <StackPanel Grid.Row="4" Orientation="Horizontal">
+            <DockPanel Grid.Row="4" LastChildFill="False">
                 <Button x:Name="AllButton" Content="全部" Tag="all" Click="Filter_Click" Style="{StaticResource FlatButton}" Margin="0,0,4,0"/>
                 <Button x:Name="AttentionButton" Content="待处理" Tag="attention" Click="Filter_Click" Style="{StaticResource FlatButton}" Margin="0,0,4,0"/>
                 <Button x:Name="FavoriteButton" Content="已收藏" Tag="favorite" Click="Filter_Click" Style="{StaticResource FlatButton}"/>
-            </StackPanel>
-            <ListBox x:Name="SessionList" Grid.Row="6" BorderThickness="0" Background="Transparent"
+                <Button x:Name="ConversationButton" DockPanel.Dock="Right" Content="看对话  Tab" Click="ConversationMode_Click"
+                        Style="{StaticResource FlatButton}" ToolTip="右侧显示选中会话最近几轮对话（Tab 切换）"/>
+                <Button x:Name="ConsoleButton" DockPanel.Dock="Right" Content="控制台" Click="ConsoleMode_Click" Style="{StaticResource FlatButton}" Margin="0,0,4,0"
+                        ToolTip="最大化，所有会话一屏显示：实时窗口预览或最近对话"/>
+                <Button x:Name="LayoutButton" DockPanel.Dock="Right" Content="分组" Click="Layout_Click" Style="{StaticResource FlatButton}" Margin="0,0,4,0"/>
+            </DockPanel>
+            <Grid Grid.Row="6">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition x:Name="ListColumn" Width="*"/>
+                    <ColumnDefinition x:Name="ConversationColumn" Width="0"/>
+                </Grid.ColumnDefinitions>
+            <ListBox x:Name="SessionList" BorderThickness="0" Background="Transparent" FocusVisualStyle="{x:Null}"
                      ScrollViewer.VerticalScrollBarVisibility="Auto"
                      ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                      MouseDoubleClick="SessionList_MouseDoubleClick"
+                     PreviewMouseLeftButtonUp="SessionList_PreviewMouseLeftButtonUp"
+                     SelectionChanged="SessionList_SelectionChanged"
                      KeyDown="SessionList_KeyDown">
                 <ListBox.GroupStyle>
                     <GroupStyle>
@@ -148,7 +162,7 @@
                 </ListBox.ItemContainerStyle>
                 <ListBox.ItemTemplate>
                     <DataTemplate>
-                        <Grid x:Name="Row" Background="Transparent" Height="58" ToolTipService.InitialShowDelay="900">
+                        <Grid x:Name="Row" Background="Transparent" Height="74" ToolTipService.InitialShowDelay="900">
                             <Grid.ToolTip>
                                 <TextBlock Text="{Binding ToolTipText}" MaxWidth="460" TextWrapping="Wrap" FontSize="13.5"/>
                             </Grid.ToolTip>
@@ -163,6 +177,9 @@
                                            TextTrimming="CharacterEllipsis" Margin="0,0,6,2"/>
                                 <TextBlock Text="{Binding TileMeta}" FontSize="12.5" Foreground="{StaticResource InkMuted}"
                                            TextTrimming="CharacterEllipsis" Margin="0,0,6,0"/>
+                                <!-- Latest AI reply in one line; the full turns live in the Tab conversation view. -->
+                                <TextBlock Text="{Binding Brief}" FontSize="12.5" Foreground="{StaticResource InkSoft}"
+                                           TextTrimming="CharacterEllipsis" Margin="0,3,6,0"/>
                             </StackPanel>
                             <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,6,0">
                                 <Border Background="{Binding StateBackground}" CornerRadius="9" Padding="7,2"
@@ -175,7 +192,7 @@
                                         ToolTip="标记 / 取消待处理" Visibility="Collapsed"/>
                             </StackPanel>
                             <Grid.ContextMenu>
-                                <ContextMenu DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}" Opened="ContextMenu_Opened" Closed="ContextMenu_Closed" FontSize="14">
+                                <ContextMenu DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}" FontSize="14">
                                     <MenuItem Header="打开会话" Click="OpenMenu_Click"/>
                                     <MenuItem Header="修改显示名称" Click="RenameMenu_Click"/>
                                     <MenuItem Header="设置项目分组" Click="WorkspaceMenu_Click"/>
@@ -202,6 +219,49 @@
                     </DataTemplate>
                 </ListBox.ItemTemplate>
             </ListBox>
+                <!-- Conversation view: the selected session's latest turns, to judge whether to switch over. -->
+                <!-- 控制台: every session as a big card, live window thumbnails where possible (ConsoleView). -->
+                <Grid x:Name="ConsolePane" Grid.ColumnSpan="2" Visibility="Collapsed" Margin="0,4,0,18"/>
+                <Border x:Name="ConversationPane" Grid.Column="1" Visibility="Collapsed" Margin="10,4,0,0"
+                        Background="#FBFAF7" BorderBrush="#E6E3DC" BorderThickness="1" CornerRadius="10">
+                    <DockPanel>
+                        <StackPanel DockPanel.Dock="Top" Margin="18,14,18,8">
+                            <TextBlock x:Name="ConversationTitle" FontSize="15.5" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+                            <TextBlock x:Name="ConversationMeta" FontSize="12.5" Foreground="{StaticResource InkMuted}" Margin="0,3,0,0"
+                                       TextTrimming="CharacterEllipsis"/>
+                        </StackPanel>
+                        <TextBlock DockPanel.Dock="Bottom" Text="Enter 跳过去处理 · Tab 关闭对话" FontSize="12" Foreground="#A29E95"
+                                   Margin="18,6,18,10"/>
+                        <Grid>
+                            <ScrollViewer x:Name="ConversationScroll" VerticalScrollBarVisibility="Auto" Padding="14,0,14,0">
+                                <ItemsControl x:Name="ConversationList">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border x:Name="Bubble" Background="White" BorderBrush="#ECE9E2" BorderThickness="1"
+                                                    CornerRadius="10" Padding="12,8" Margin="0,4,48,4" HorizontalAlignment="Left">
+                                                <StackPanel>
+                                                    <TextBlock Text="{Binding RoleLabel}" FontSize="11.5" Foreground="{StaticResource InkMuted}" Margin="0,0,0,3"/>
+                                                    <ContentControl Content="{Binding Text, Converter={StaticResource Markdown}}" Focusable="False"/>
+                                                </StackPanel>
+                                            </Border>
+                                            <DataTemplate.Triggers>
+                                                <DataTrigger Binding="{Binding FromUser}" Value="True">
+                                                    <Setter TargetName="Bubble" Property="Background" Value="#ECEAE4"/>
+                                                    <Setter TargetName="Bubble" Property="BorderThickness" Value="0"/>
+                                                    <Setter TargetName="Bubble" Property="Margin" Value="48,4,0,4"/>
+                                                    <Setter TargetName="Bubble" Property="HorizontalAlignment" Value="Right"/>
+                                                </DataTrigger>
+                                            </DataTemplate.Triggers>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                            <TextBlock x:Name="ConversationEmpty" FontSize="14" Foreground="{StaticResource InkMuted}" TextWrapping="Wrap"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center" Margin="24" TextAlignment="Center" Visibility="Collapsed"/>
+                        </Grid>
+                    </DockPanel>
+                </Border>
+            </Grid>
             <Grid Grid.Row="7" Margin="14,10,0,0">
                 <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                 <TextBlock x:Name="FeedbackText" Text="↑↓ 选择 · Enter 跳转 · Esc 关闭 · 右键管理"

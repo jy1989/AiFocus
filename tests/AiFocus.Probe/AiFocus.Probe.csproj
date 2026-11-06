@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\AiCockpit\AiCockpit.csproj" />
+    <ProjectReference Include="..\..\src\AiFocus\AiFocus.csproj" />
   </ItemGroup>
 
   <PropertyGroup>

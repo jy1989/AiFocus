@@ -2,7 +2,7 @@ using System.Buffers.Binary;
 using System.IO.Pipes;
 using System.Text;
 
-namespace AiCockpit.Bridge;
+namespace AiFocus.Bridge;
 
 internal static class Program
 {
@@ -13,7 +13,7 @@ internal static class Program
         // Native Messaging uses stdout as a binary protocol. Never log to stdout.
         try
         {
-            using var pipe = new NamedPipeClientStream(".", "AiCockpit-" + Environment.UserName,
+            using var pipe = new NamedPipeClientStream(".", "AiFocus-" + Environment.UserName,
                 PipeDirection.InOut, PipeOptions.Asynchronous);
             await pipe.ConnectAsync(3500);
             using var nativeInput = Console.OpenStandardInput();
@@ -57,7 +57,7 @@ internal static class Program
         catch (Exception ex)
         {
             // stderr does not corrupt the Native Messaging stream.
-            Console.Error.WriteLine("AI Cockpit bridge disconnected: " + ex.Message);
+            Console.Error.WriteLine("AI Focus bridge disconnected: " + ex.Message);
         }
     }
 }

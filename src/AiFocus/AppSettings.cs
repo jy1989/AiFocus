@@ -2,7 +2,7 @@ using System.IO;
 using System.Text.Json;
 using System.Windows.Input;
 
-namespace AiCockpit;
+namespace AiFocus;
 
 public sealed class AppSettings
 {
@@ -11,16 +11,20 @@ public sealed class AppSettings
     public const string DefaultNextHotkey = "Alt+W";
     /// <summary>Jumps to the session waiting longest for a reply; empty disables it.</summary>
     public string NextHotkey { get; set; } = DefaultNextHotkey;
+    public const string DefaultBackHotkey = "Alt+E";
+    /// <summary>Returns to the window the user was in before jumping to an AI; empty disables it.</summary>
+    public string BackHotkey { get; set; } = DefaultBackHotkey;
     /// <summary>Tray notification when a Claude Code / Codex session finishes.</summary>
     public bool NotifyOnComplete { get; set; } = true;
     /// <summary>Always-on-top status capsule.</summary>
     public bool ShowWidget { get; set; } = true;
+    /// <summary>Panel layout: grouped by tool (true) or one mixed list ordered by urgency (false).</summary>
+    public bool GroupByTool { get; set; } = true;
     /// <summary>Widget position in DIPs; null = default (top-right of the primary screen).</summary>
     public double? WidgetLeft { get; set; }
     public double? WidgetTop { get; set; }
 
-    private static readonly string FilePath = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AiCockpit", "settings.json");
+    private static readonly string FilePath = AppPaths.File("settings.json");
 
     public static AppSettings Load()
     {

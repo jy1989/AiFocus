@@ -5,7 +5,7 @@ using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 
-namespace AiCockpit;
+namespace AiFocus;
 
 /// <summary>App icons (from the window, else the executable) and browser favicons (data URLs from the extension).</summary>
 public static class IconCache

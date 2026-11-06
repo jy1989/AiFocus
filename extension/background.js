@@ -2,7 +2,7 @@
 
 importScripts("sites.js");
 
-const HOST = "com.aicockpit.bridge";
+const HOST = "com.aifocus.bridge";
 let port = null;
 let profileId = null;
 let snapshotTimer = null;
@@ -32,20 +32,32 @@ function connect() {
     const p = chrome.runtime.connectNative(HOST);
     port = p;
     p.onMessage.addListener(async (msg) => {
-      if (msg?.type !== "activate" || !Number.isInteger(msg.tabId)) return;
+      if (!Number.isInteger(msg?.tabId)) return;
+      if (msg.type === "conversation") {
+        // Relay to the tab's content script, which reads the latest turns from the page.
+        let reply = { supported: false, messages: [] };
+        try {
+          reply = await chrome.tabs.sendMessage(msg.tabId, { type: "read-conversation" }) || reply;
+        } catch (error) {
+          console.info("AI Focus: no conversation reader in tab", msg.tabId, error?.message);
+        }
+        if (port === p) p.postMessage({ type: "conversation", requestId: msg.requestId, ...reply });
+        return;
+      }
+      if (msg.type !== "activate") return;
       try {
         const tab = await chrome.tabs.get(msg.tabId);
         if (!tab) return;
         await chrome.windows.update(tab.windowId, { focused: true });
         await chrome.tabs.update(tab.id, { active: true });
       } catch (error) {
-        console.warn("AI Cockpit: tab is no longer available", error?.message);
+        console.warn("AI Focus: tab is no longer available", error?.message);
       }
     });
     p.onDisconnect.addListener(() => {
       // Consume the browser error; otherwise Chrome reports Unchecked runtime.lastError.
       const disconnectReason = chrome.runtime.lastError?.message;
-      if (disconnectReason) console.info('AI Cockpit native bridge:', disconnectReason);
+      if (disconnectReason) console.info('AI Focus native bridge:', disconnectReason);
       if (port === p) port = null;
       scheduleReconnect();
     });
@@ -74,7 +86,7 @@ async function faviconOf(tab) {
     for (const b of bytes) binary += String.fromCharCode(b);
     data = `data:${blob.type || "image/png"};base64,${btoa(binary)}`;
   } catch (error) {
-    console.info("AI Cockpit: favicon unavailable", error?.message);
+    console.info("AI Focus: favicon unavailable", error?.message);
   }
   if (faviconCache.size > 200) faviconCache.clear();
   faviconCache.set(key, data);
@@ -107,7 +119,7 @@ async function sendSnapshot() {
       tabs
     });
   } catch (error) {
-    console.warn("AI Cockpit: snapshot failed", error?.message);
+    console.warn("AI Focus: snapshot failed", error?.message);
   }
 }
 
@@ -141,7 +153,7 @@ async function injectIntoOpenTabs() {
   for (const tab of await chrome.tabs.query({})) {
     if (tab.id === undefined || !providerOf(tab.url || "")) continue;
     chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ["sites.js", "content.js"] })
-      .catch((error) => console.info("AI Cockpit: cannot inject into tab", tab.id, error?.message));
+      .catch((error) => console.info("AI Focus: cannot inject into tab", tab.id, error?.message));
   }
 }
 chrome.alarms.onAlarm.addListener(() => {
@@ -151,6 +163,6 @@ chrome.alarms.onAlarm.addListener(() => {
 
 (async () => {
   profileId = await getProfileId();
-  chrome.alarms.create("cockpit-sync", { periodInMinutes: 1 });
+  chrome.alarms.create("focus-sync", { periodInMinutes: 1 });
   connect();
 })();

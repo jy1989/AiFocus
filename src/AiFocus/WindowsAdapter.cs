@@ -2,7 +2,7 @@ using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Text;
 
-namespace AiCockpit;
+namespace AiFocus;
 
 public static class WindowsAdapter
 {
@@ -82,6 +82,28 @@ public static class WindowsAdapter
     private const string ClaudeIdleGlyphs = "✳";
     private const string ClaudeBusyGlyphs = "◐◓◑◒✢✶✻✽·⠁⠂⠄⠈⠐⠠⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏";
 
+    // Process name and executable per PID. Reading MainModule walks the module list and is by far
+    // the slowest part of a refresh, so it is done once per process instead of every few seconds.
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<uint, (string Name, string Path, DateTime Started)> Processes = new();
+
+    private static (string Name, string Path)? ProcessOf(uint pid)
+    {
+        try
+        {
+            using var p = Process.GetProcessById((int)pid);
+            var started = p.StartTime;
+            // StartTime guards against a recycled PID now belonging to another program.
+            if (Processes.TryGetValue(pid, out var known) && known.Started == started) return (known.Name, known.Path);
+            string path = "";
+            try { path = p.MainModule?.FileName ?? ""; }
+            catch { /* Path may be protected; retain the process name. */ }
+            if (Processes.Count > 512) Processes.Clear();
+            Processes[pid] = (p.ProcessName, path, started);
+            return (p.ProcessName, path);
+        }
+        catch { return null; }
+    }
+
     public static IReadOnlyList<WindowInfo> Discover()
     {
         var result = new List<WindowInfo>();
@@ -96,16 +118,8 @@ public static class WindowsAdapter
             if (title.Length == 0) return true;
             GetWindowThreadProcessId(hwnd, out uint pid);
             if (pid == Environment.ProcessId) return true;
-            string process;
-            string executablePath = "";
-            try
-            {
-                using var p = Process.GetProcessById((int)pid);
-                process = p.ProcessName;
-                try { executablePath = p.MainModule?.FileName ?? ""; }
-                catch { /* Path may be protected; retain the process name. */ }
-            }
-            catch { return true; }
+            if (ProcessOf(pid) is not { } proc) return true;
+            var (process, executablePath) = proc;
             var info = Detect(hwnd, process, title, executablePath);
             if (info != null && info.ExecutablePath.Length == 0) info = info with { ExecutablePath = executablePath };
             if (info != null) result.Add(info);
@@ -171,6 +185,23 @@ public static class WindowsAdapter
     }
 
     public static bool Exists(IntPtr hwnd) => hwnd != IntPtr.Zero && IsWindow(hwnd);
+
+    public static string GetTitle(IntPtr hwnd)
+    {
+        var length = GetWindowTextLength(hwnd);
+        if (length <= 0) return "";
+        var buffer = new StringBuilder(length + 2);
+        GetWindowText(hwnd, buffer, buffer.Capacity);
+        return buffer.ToString();
+    }
+
+    public static bool IsMinimized(IntPtr hwnd) => IsIconic(hwnd);
+
+    public static bool IsOwnWindow(IntPtr hwnd)
+    {
+        GetWindowThreadProcessId(hwnd, out uint pid);
+        return pid == Environment.ProcessId;
+    }
 
     /// <summary>Browser window whose title (= its active tab's title) starts with the given text.</summary>
     public static IntPtr FindBrowserWindow(string tabTitle)

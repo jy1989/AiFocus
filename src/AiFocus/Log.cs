@@ -1,12 +1,11 @@
 using System.IO;
 
-namespace AiCockpit;
+namespace AiFocus;
 
-/// <summary>Small diagnostic log at %LOCALAPPDATA%\AiCockpit\debug.log (kept under ~256 KB).</summary>
+/// <summary>Small diagnostic log at %LOCALAPPDATA%\AiFocus\debug.log (kept under ~256 KB).</summary>
 public static class Log
 {
-    private static readonly string FilePath = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AiCockpit", "debug.log");
+    private static readonly string FilePath = AppPaths.File("debug.log");
     private static readonly object Gate = new();
 
     public static void Write(string message)

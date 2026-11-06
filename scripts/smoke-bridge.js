@@ -1,7 +1,7 @@
-// Optional local bridge smoke test. Requires Node.js and a running AI Cockpit.
+// Optional local bridge smoke test. Requires Node.js and a running AI Focus.
 const { spawn } = require("node:child_process");
 const path = require("node:path");
-const host = path.resolve(__dirname, "../src/AiCockpit.Bridge/bin/Debug/net9.0/AiCockpit.Bridge.exe");
+const host = path.resolve(__dirname, "../src/AiFocus.Bridge/bin/Debug/net9.0/AiFocus.Bridge.exe");
 const child = spawn(host, [], { stdio: ["pipe", "pipe", "pipe"] });
 let errors = "";
 child.stderr.on("data", chunk => errors += chunk.toString());

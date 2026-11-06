@@ -1,7 +1,7 @@
 using System.IO;
 using System.Text.Json;
 
-namespace AiCockpit;
+namespace AiFocus;
 
 public sealed class SessionPreference
 {
@@ -9,15 +9,13 @@ public sealed class SessionPreference
     public string Workspace { get; set; } = "";
     public bool Favorite { get; set; }
     public bool NeedsAttention { get; set; }
-    /// <summary>Last time the user opened this session from AI Cockpit; replies older than this count as seen.</summary>
+    /// <summary>Last time the user opened this session from AI Focus; replies older than this count as seen.</summary>
     public DateTime? SeenUtc { get; set; }
 }
 
 public sealed class SessionStore
 {
-    private readonly string _path = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "AiCockpit", "sessions.json");
+    private readonly string _path = AppPaths.File("sessions.json");
     private readonly Dictionary<string, SessionPreference> _preferences = new(StringComparer.Ordinal);
     public SessionStore()
     {

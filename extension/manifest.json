@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "AI Cockpit Browser Bridge",
-  "version": "0.3.0",
-  "description": "Local AI tab index, generation status and one-click activation for AI Cockpit.",
+  "name": "AI Focus Browser Bridge",
+  "version": "0.4.0",
+  "description": "Local AI tab index, generation status and one-click activation for AI Focus.",
   "permissions": [
     "tabs",
     "storage",

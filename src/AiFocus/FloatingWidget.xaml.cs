@@ -10,7 +10,7 @@ using Point = System.Windows.Point;
 using Color = System.Windows.Media.Color;
 using ColorConverter = System.Windows.Media.ColorConverter;
 
-namespace AiCockpit;
+namespace AiFocus;
 
 /// <summary>
 /// Always-on-top capsule showing whether any AI is waiting for the user. Never takes focus,
@@ -79,7 +79,15 @@ public partial class FloatingWidget : Window
         AddGroup(pending, "待处理");
         AddGroup(running, "运行中");
         if (Summary.Children.Count == 0) Summary.Children.Add(new TextBlock { Text = "AI 都很安静", FontSize = 14 });
-        StatusDot.Fill = Brush(waiting.Count > 0 ? "#6FA582" : stalled.Count > 0 ? "#D98A5F" : pending.Count > 0 ? "#D9A44A" : running.Count > 0 ? "#8FA6C4" : "#C2BEB5");
+        // How long the oldest thing has been waiting on the user drives a calm escalation of the dot.
+        var oldest = waiting.Select(s => s.CompletedUtc).Concat(stalled.Select(s => s.StallSinceUtc))
+            .Where(t => t != default).DefaultIfEmpty(DateTime.UtcNow).Min();
+        var waitedFor = DateTime.UtcNow - oldest;
+        int level = waitedFor >= LongWait ? 2 : waitedFor >= Wait ? 1 : 0;
+        StatusDot.Fill = Brush(waiting.Count > 0 ? (level == 2 ? "#3E7D57" : "#6FA582")
+            : stalled.Count > 0 ? (level == 2 ? "#B8562A" : "#D98A5F")
+            : pending.Count > 0 ? "#D9A44A" : running.Count > 0 ? "#8FA6C4" : "#C2BEB5");
+        SetEscalation(level);
 
         var active = waiting.Concat(stalled).Concat(pending).Concat(running).ToList();
         ActiveList.ItemsSource = active;
@@ -88,6 +96,29 @@ public partial class FloatingWidget : Window
     }
 
     private const int MaxIconsPerGroup = 3;
+    private static readonly TimeSpan Wait = TimeSpan.FromMinutes(10), LongWait = TimeSpan.FromMinutes(30);
+    private int _escalation = -1;
+
+    /// <summary>
+    /// 0: still. 1 (waiting ≥ 10 min): the dot breathes slowly. 2 (≥ 30 min): deeper colour, larger
+    /// dot, quicker breathing. No sound, no popup: noticeable in peripheral vision, never jarring.
+    /// </summary>
+    private void SetEscalation(int level)
+    {
+        if (level == _escalation) return; // Refresh runs every few seconds; don't restart the animation.
+        _escalation = level;
+        StatusDot.BeginAnimation(OpacityProperty, null);
+        StatusDot.Opacity = 1;
+        StatusDot.Width = StatusDot.Height = level == 2 ? 11 : 9;
+        if (level == 0) return;
+        var breathe = new System.Windows.Media.Animation.DoubleAnimation(1, 0.3, TimeSpan.FromSeconds(level == 2 ? 0.9 : 1.6))
+        {
+            AutoReverse = true,
+            RepeatBehavior = System.Windows.Media.Animation.RepeatBehavior.Forever,
+            EasingFunction = new System.Windows.Media.Animation.SineEase()
+        };
+        StatusDot.BeginAnimation(OpacityProperty, breathe);
+    }
 
     /// <summary>"N 个运行中" followed by the sessions' icons, so the capsule shows *which* AIs at a glance.</summary>
     private void AddGroup(IReadOnlyList<SessionEntry> group, string label)
@@ -124,18 +155,38 @@ public partial class FloatingWidget : Window
         _collapseTimer.Start();
     }
 
+    // Click vs drag is decided here, not by DragMove: entering the system move loop on every press
+    // made a plain click wait for Windows to give up on the drag (~1 s) before the panel opened.
+    private Point? _pressedAt;
+
     private void Capsule_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
-        var before = new Point(Left, Top);
+        _pressedAt = e.GetPosition(this);
+        Capsule.CaptureMouse();
+        e.Handled = true;
+    }
+
+    private void Capsule_MouseMove(object sender, MouseEventArgs e)
+    {
+        if (_pressedAt is not { } start || e.LeftButton != MouseButtonState.Pressed) return;
+        var delta = e.GetPosition(this) - start;
+        if (Math.Abs(delta.X) < SystemParameters.MinimumHorizontalDragDistance
+            && Math.Abs(delta.Y) < SystemParameters.MinimumVerticalDragDistance) return;
+        // A real drag: hand over to the system move loop, then remember where it was dropped.
+        _pressedAt = null;
+        Capsule.ReleaseMouseCapture();
         DragMove();
-        if (Math.Abs(Left - before.X) < 3 && Math.Abs(Top - before.Y) < 3)
-        {
-            _main.ShowPanel();
-            return;
-        }
         _main.Settings.WidgetLeft = Left;
         _main.Settings.WidgetTop = Top;
         _main.Settings.Save();
+    }
+
+    private void Capsule_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        if (_pressedAt == null) return;
+        _pressedAt = null;
+        Capsule.ReleaseMouseCapture();
+        _main.ShowPanel();
     }
 
     private void Row_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
@@ -149,6 +200,7 @@ public partial class FloatingWidget : Window
 
     private void OpenPanel_Click(object sender, RoutedEventArgs e) => _main.ShowPanel();
     private void Next_Click(object sender, RoutedEventArgs e) => _ = _main.JumpToNextWaitingAsync();
+    private void Back_Click(object sender, RoutedEventArgs e) => _main.ReturnToOwnWindow();
     private void Hide_Click(object sender, RoutedEventArgs e)
     {
         _main.Settings.ShowWidget = false;

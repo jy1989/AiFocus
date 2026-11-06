@@ -2,7 +2,7 @@ using System.Windows;
 using Microsoft.Toolkit.Uwp.Notifications;
 using WinForms = System.Windows.Forms;
 
-namespace AiCockpit;
+namespace AiFocus;
 
 public partial class App : System.Windows.Application
 {
@@ -14,11 +14,13 @@ public partial class App : System.Windows.Application
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
-        _singleInstance = new Mutex(initiallyOwned: true, name: @"Local\AiCockpit.SingleInstance", createdNew: out bool first);
+        AppPaths.MigrateFromAiCockpit();
+        try { AutoStart.RefreshPath(); } catch (UnauthorizedAccessException) { }
+        _singleInstance = new Mutex(initiallyOwned: true, name: @"Local\AiFocus.SingleInstance", createdNew: out bool first);
         if (!first)
         {
             var hotkey = HotkeyText.Pretty(AppSettings.Load().Hotkey);
-            System.Windows.MessageBox.Show("AI Cockpit 已在运行，请按 " + hotkey + " 或点击托盘图标。", "AI Cockpit");
+            System.Windows.MessageBox.Show("AI Focus 已在运行，请按 " + hotkey + " 或点击托盘图标。", "AI Focus");
             Shutdown();
             return;
         }
@@ -28,8 +30,9 @@ public partial class App : System.Windows.Application
         if (_window.Settings.ShowWidget) _widget.Show();
 
         var menu = new WinForms.ContextMenuStrip();
-        menu.Items.Add("打开 AI Cockpit", null, (_, _) => Dispatcher.Invoke(() => _window?.ShowPanel()));
+        menu.Items.Add("打开 AI Focus", null, (_, _) => Dispatcher.Invoke(() => _window?.ShowPanel()));
         menu.Items.Add("送过去（下一个等你的会话）", null, (_, _) => Dispatcher.Invoke(() => _window?.JumpToNextWaitingAsync()));
+        menu.Items.Add("送回来（回到刚才的窗口）", null, (_, _) => Dispatcher.Invoke(() => _window?.ReturnToOwnWindow()));
         var widgetItem = new WinForms.ToolStripMenuItem("显示悬浮窗") { CheckOnClick = true };
         widgetItem.Click += (_, _) => Dispatcher.Invoke(() =>
         {
@@ -94,7 +97,7 @@ public partial class App : System.Windows.Application
     private void UpdateTrayText()
     {
         // NotifyIcon.Text is limited to 63 characters.
-        if (_tray != null && _window != null) _tray.Text = "AI Cockpit - " + HotkeyText.Pretty(_window.Settings.Hotkey);
+        if (_tray != null && _window != null) _tray.Text = "AI Focus - " + HotkeyText.Pretty(_window.Settings.Hotkey);
     }
     protected override void OnExit(ExitEventArgs e)
     {

@@ -2,7 +2,7 @@ using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Windows.Media;
 
-namespace AiCockpit;
+namespace AiFocus;
 
 public sealed class SessionEntry : INotifyPropertyChanged
 {
@@ -27,7 +27,7 @@ public sealed class SessionEntry : INotifyPropertyChanged
     public bool NeedsAttention { get; set; }
     /// <summary>"running" / "idle" when the window title exposes it (Claude Code terminals), otherwise "".</summary>
     public string Activity { get; set; } = "";
-    /// <summary>Set when a session goes from running to stopped while AI Cockpit watches; cleared once the user opens it.</summary>
+    /// <summary>Set when a session goes from running to stopped while AI Focus watches; cleared once the user opens it.</summary>
     public bool Completed { get; set; }
     public DateTime CompletedUtc { get; set; }
     /// <summary>
@@ -43,17 +43,21 @@ public sealed class SessionEntry : INotifyPropertyChanged
     /// <summary>Latest AI reply, when the source exposes it (Claude Code / Codex).</summary>
     public string Preview { get; set; } = "";
     public string? ThreadId { get; set; }
+    /// <summary>Claude Code / Codex transcript (JSONL) backing the conversation view.</summary>
+    public string TranscriptPath { get; set; } = "";
     public int TerminalTabIndex { get; set; }
+    /// <summary>Web session: the selected tab of its browser window (so the window shows it).</summary>
+    public bool TabActive { get; set; }
     /// <summary>Real app icon or favicon; null falls back to the Icon glyph.</summary>
     public System.Windows.Media.ImageSource? IconImage { get; set; }
     public System.Windows.Media.Brush IconBrush => Provider is "Claude" or "Claude Code" ? ColorBrush("#D97757") : ColorBrush("#8C8880");
     public string DisplayTitle => string.IsNullOrWhiteSpace(CustomTitle) ? OriginalTitle : CustomTitle;
     public string ProjectLabel => string.IsNullOrWhiteSpace(Workspace) ? Project : Workspace;
     public string Subtitle => string.Join("  ·  ", new[] { ProjectLabel, Provider, SourceName }.Where(s => !string.IsNullOrWhiteSpace(s)));
-    /// <summary>Second line of a tile; the full source (process / browser) lives in the tooltip.
-    /// A finished session shows its one-line brief instead of the tool name.</summary>
-    public string TileMeta => string.Join("  ·  ", new[] { ProjectLabel, Completed && Brief.Length > 0 ? Brief : Provider, Completed ? "" : LastUsedText }
-        .Where(s => !string.IsNullOrWhiteSpace(s)));
+    /// <summary>Second line of a tile. The group header and icon already name the tool, so it only
+    /// falls back to the tool name when there is nothing else to show; the full source is in the tooltip.</summary>
+    public string TileMeta => string.Join("  ·  ", new[] { ProjectLabel, LastUsedText }.Where(s => !string.IsNullOrWhiteSpace(s)))
+        is { Length: > 0 } meta ? meta : Provider;
     /// <summary>First meaningful sentence of the latest AI reply, Markdown stripped; "" when unknown.</summary>
     public string Brief => MakeBrief(Preview);
     public System.Windows.Visibility BriefVisibility => (Completed || Stall.Length > 0) && Brief.Length > 0
@@ -64,6 +68,20 @@ public sealed class SessionEntry : INotifyPropertyChanged
     /// <summary>Floating-widget second line: the icon already says which tool, so lead with the folder.</summary>
     public string WidgetMeta => string.Join("  ·  ", new[] { ProjectLabel.Length > 0 ? ProjectLabel : Provider, WaitText }.Where(x => x.Length > 0));
     public bool WaitingForUser => NeedsAttention || Completed || Stall.Length > 0;
+
+    // ---- Ordering inside a group: tiles move only when their state changes, never because the
+    //      user switched windows, so each one keeps its place in spatial memory. ----
+    private static long _nextSequence;
+    /// <summary>Discovery order; the stable tiebreaker for everything that is not waiting.</summary>
+    public long Sequence { get; } = Interlocked.Increment(ref _nextSequence);
+    /// <summary>0 = needs the user, 1 = running, 2 = everything else.</summary>
+    public int SortTier => WaitingForUser ? 0 : Activity == "running" ? 1 : 2;
+    /// <summary>Within tier 0: waiting longest first (same order as "送过去"); manual to-dos last.</summary>
+    public DateTime WaitSortUtc => Completed && CompletedUtc != default ? CompletedUtc
+        : Stall.Length > 0 && StallSinceUtc != default ? StallSinceUtc
+        : DateTime.MaxValue;
+    /// <summary>Favourites lead among idle tiles only; waiting and running order by urgency and age.</summary>
+    public bool FavoriteFirst => Favorite && SortTier == 2;
     public bool IsBrowser => Kind is "web" or "browser-window";
     public int GroupOrder => IsBrowser ? 2
         : Provider is "Claude" or "Claude Code" ? 0

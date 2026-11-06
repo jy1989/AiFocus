@@ -2,7 +2,7 @@ using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Windows.Automation;
 
-namespace AiCockpit;
+namespace AiFocus;
 
 /// <summary>
 /// Reads Windows Terminal tab titles through UI Automation, so Claude Code sessions in background
@@ -16,12 +16,14 @@ public sealed class TerminalTabs : IDisposable
     private const string TabViewClass = "Microsoft.UI.Xaml.Controls.TabView";
     private static readonly TimeSpan Interval = TimeSpan.FromSeconds(1.5);
     private readonly ConcurrentDictionary<IntPtr, IReadOnlyList<Tab>> _tabs = new();
+    // The tab elements behind _tabs, same order, so selecting a tab needs no fresh tree walk.
+    private readonly ConcurrentDictionary<IntPtr, List<AutomationElement>> _elements = new();
     private readonly CancellationTokenSource _stop = new();
     private volatile IntPtr[] _windows = Array.Empty<IntPtr>();
 
     public TerminalTabs()
     {
-        var thread = new Thread(Loop) { IsBackground = true, Name = "AiCockpit.TerminalTabs" };
+        var thread = new Thread(Loop) { IsBackground = true, Name = "AiFocus.TerminalTabs" };
         thread.SetApartmentState(ApartmentState.MTA);
         thread.Start();
     }
@@ -32,21 +34,42 @@ public sealed class TerminalTabs : IDisposable
     /// <summary>Latest tab list, or null until the window has been read once.</summary>
     public IReadOnlyList<Tab>? Get(IntPtr hwnd) => _tabs.TryGetValue(hwnd, out var tabs) ? tabs : null;
 
-    /// <summary>Selects the tab whose (glyph-stripped) title matches, falling back to its last known index.</summary>
+    /// <summary>
+    /// Selects the tab whose (glyph-stripped) title matches, falling back to its last known index.
+    /// Fast path: one UIA call on the element the background loop already found; walking the
+    /// Terminal's UI tree again is the slow part and only happens if that element went stale.
+    /// </summary>
     public bool Select(IntPtr hwnd, string title, int index)
     {
+        if (_elements.TryGetValue(hwnd, out var cached) && _tabs.TryGetValue(hwnd, out var tabs))
+        {
+            var match = tabs.FirstOrDefault(t => WindowsAdapter.ParseClaudeCodeTitle(t.Title).title == title)?.Index ?? index;
+            if (match >= 0 && match < cached.Count && TrySelect(cached[match])) return true;
+        }
         try
         {
             var items = TabItems(hwnd);
             var target = items.FirstOrDefault(i => WindowsAdapter.ParseClaudeCodeTitle(i.Current.Name).title == title)
                 ?? (index >= 0 && index < items.Count ? items[index] : null);
-            if (target?.TryGetCurrentPattern(SelectionItemPattern.Pattern, out var p) != true) return false;
+            return target != null && TrySelect(target);
+        }
+        catch (Exception ex) when (ex is ElementNotAvailableException or InvalidOperationException or System.Runtime.InteropServices.COMException)
+        {
+            Debug.WriteLine("Select terminal tab: " + ex.Message);
+            return false;
+        }
+    }
+
+    private static bool TrySelect(AutomationElement item)
+    {
+        try
+        {
+            if (!item.TryGetCurrentPattern(SelectionItemPattern.Pattern, out var p)) return false;
             ((SelectionItemPattern)p).Select();
             return true;
         }
         catch (Exception ex) when (ex is ElementNotAvailableException or InvalidOperationException or System.Runtime.InteropServices.COMException)
         {
-            Debug.WriteLine("Select terminal tab: " + ex.Message);
             return false;
         }
     }
@@ -56,13 +79,18 @@ public sealed class TerminalTabs : IDisposable
         while (!_stop.IsCancellationRequested)
         {
             var windows = _windows;
-            foreach (var gone in _tabs.Keys.Where(h => !windows.Contains(h)).ToArray()) _tabs.TryRemove(gone, out _);
+            foreach (var gone in _tabs.Keys.Where(h => !windows.Contains(h)).ToArray())
+            {
+                _tabs.TryRemove(gone, out _);
+                _elements.TryRemove(gone, out _);
+            }
             foreach (var hwnd in windows)
             {
                 try
                 {
                     var items = TabItems(hwnd);
                     _tabs[hwnd] = items.Select((item, i) => new Tab(i, item.Current.Name, IsSelected(item))).ToList();
+                    _elements[hwnd] = items;
                 }
                 catch (Exception ex) when (ex is ElementNotAvailableException or InvalidOperationException or System.Runtime.InteropServices.COMException)
                 {

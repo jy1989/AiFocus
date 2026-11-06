@@ -7,7 +7,7 @@
     <UseWindowsForms>true</UseWindowsForms>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <AssemblyName>AiCockpit</AssemblyName>
+    <AssemblyName>AiFocus</AssemblyName>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <!-- DPI is declared in app.manifest for WPF; the WinForms-only suggestion does not apply. -->
     <NoWarn>$(NoWarn);WFO0003</NoWarn>

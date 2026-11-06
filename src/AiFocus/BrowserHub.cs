@@ -4,7 +4,7 @@ using System.IO.Pipes;
 using System.Text;
 using System.Text.Json;
 
-namespace AiCockpit;
+namespace AiFocus;
 
 public sealed class BrowserTab
 {
@@ -21,6 +21,20 @@ public sealed class BrowserTab
     /// <summary>Null when no content script reports for this tab (old extension, page not yet loaded).</summary>
     public bool? Generating { get; set; }
 }
+/// <summary>Content script's answer to a "conversation" request: the page's latest turns.</summary>
+public sealed class ConversationReply
+{
+    public string Type { get; set; } = "";
+    public string RequestId { get; set; } = "";
+    /// <summary>False when the extension has no reader for this site.</summary>
+    public bool Supported { get; set; }
+    public List<WebMessage> Messages { get; set; } = new();
+}
+public sealed class WebMessage
+{
+    public string Role { get; set; } = "";
+    public string Text { get; set; } = "";
+}
 public sealed class BrowserSnapshot
 {
     public string Type { get; set; } = "";
@@ -31,7 +45,7 @@ public sealed class BrowserSnapshot
 }
 public sealed class BrowserHub : IDisposable
 {
-    public static string PipeName => "AiCockpit-" + Environment.UserName;
+    public static string PipeName => "AiFocus-" + Environment.UserName;
     private readonly CancellationTokenSource _stop = new();
     private readonly ConcurrentDictionary<string, BrowserSnapshot> _snapshots = new();
     private readonly ConcurrentDictionary<string, PipeClient> _clients = new();
@@ -93,6 +107,11 @@ public sealed class BrowserHub : IDisposable
                     BrowserSnapshot? snapshot = null;
                     try { snapshot = JsonSerializer.Deserialize<BrowserSnapshot>(line, _json); }
                     catch (JsonException) { /* Ignore malformed payloads. */ }
+                    if (snapshot?.Type == "conversation")
+                    {
+                        CompleteConversation(line);
+                        continue;
+                    }
                     if (snapshot?.Type != "snapshot" ||
                         string.IsNullOrWhiteSpace(snapshot.ProfileId) ||
                         snapshot.ProfileId.Length > 120) continue;
@@ -138,6 +157,38 @@ public sealed class BrowserHub : IDisposable
         }
         catch (IOException) { return false; }
     }
+    private readonly ConcurrentDictionary<string, TaskCompletionSource<ConversationReply>> _pendingConversations = new();
+
+    /// <summary>
+    /// Asks the tab's content script for its latest turns. Null if the extension is not connected
+    /// or does not answer in time (page still loading, extension older than v0.4).
+    /// </summary>
+    public async Task<ConversationReply?> RequestConversationAsync(SessionEntry session)
+    {
+        if (session.ProfileId == null || !_clients.TryGetValue(session.ProfileId, out var client)) return null;
+        var requestId = Guid.NewGuid().ToString("N");
+        var reply = new TaskCompletionSource<ConversationReply>(TaskCreationOptions.RunContinuationsAsynchronously);
+        _pendingConversations[requestId] = reply;
+        try
+        {
+            await client.SendAsync(JsonSerializer.Serialize(new { type = "conversation", requestId, tabId = session.BrowserTabId }));
+            var finished = await Task.WhenAny(reply.Task, Task.Delay(2500));
+            return finished == reply.Task ? reply.Task.Result : null;
+        }
+        catch (IOException) { return null; }
+        finally { _pendingConversations.TryRemove(requestId, out _); }
+    }
+
+    private void CompleteConversation(string line)
+    {
+        try
+        {
+            var reply = JsonSerializer.Deserialize<ConversationReply>(line, _json);
+            if (reply != null && _pendingConversations.TryRemove(reply.RequestId, out var pending)) pending.TrySetResult(reply);
+        }
+        catch (JsonException) { }
+    }
+
     public void Dispose()
     {
         _stop.Cancel();
