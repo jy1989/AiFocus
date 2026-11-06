@@ -105,3 +105,7 @@ That's it. The extension has a fixed ID, so AI Focus registers the browser bridg
 - Live previews of Windows Terminal and browsers show only each window's current tab; background tabs show their latest turns in the console.
 - Web generation detection and conversation reading depend on page structure and may break when a site changes; sites without a dedicated reader (e.g. Muse) only get generic detection.
 - The browser extension is loaded manually (not in a store), and the app is not code-signed.
+
+## License
+
+This project is licensed under the [MIT License](LICENSE).

@@ -32,7 +32,7 @@ jobs:
           Copy-Item dist/app/AiFocus.exe "$package/AiFocus.exe"
           Copy-Item dist/bridge/AiFocus.Bridge.exe "$package/AiFocus.Bridge.exe"
           Copy-Item -Recurse extension "$package/extension"
-          Copy-Item README.md,README.en.md -Destination $package
+          Copy-Item README.md,README.en.md,LICENSE -Destination $package
           New-Item -ItemType Directory -Force -Path "$package/docs" | Out-Null
           Copy-Item -Recurse docs/images "$package/docs/images"
           if (-not (Test-Path "$package/AiFocus.Bridge.exe")) { throw 'Missing browser bridge' }
